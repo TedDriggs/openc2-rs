@@ -1,0 +1,11 @@
+[package]
+name = "openc2"
+version = "0.1.0"
+authors = ["Ted Driggs <t.driggs@outlook.com>"]
+license = "MIT"
+repository = "https://github.com/TedDriggs/openc2"
+
+[dependencies]
+serde = "1"
+serde_derive = "1"
+from_variants="0.3.0"
