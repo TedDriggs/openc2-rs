@@ -3,7 +3,7 @@ name = "openc2"
 version = "0.1.0"
 authors = ["Ted Driggs <t.driggs@outlook.com>"]
 license = "MIT"
-repository = "https://github.com/TedDriggs/openc2"
+repository = "https://github.com/TedDriggs/openc2-rs"
 
 [dependencies]
 serde = "1"
