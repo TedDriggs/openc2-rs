@@ -23,6 +23,9 @@ pub use command::{Action, Command};
 pub use data::*;
 
 #[doc(inline)]
+pub use message::{Content, Message};
+
+#[doc(inline)]
 pub use target::Target;
 
 #[doc(inline)]

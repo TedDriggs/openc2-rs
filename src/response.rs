@@ -10,7 +10,7 @@ use crate::{ActionTargets, Extensions};
 /// Response messages are solicited and correspond to a command. The recipient of the OpenC2 Response
 /// is typically the entity that issued the command.
 #[skip_serializing_none]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Response {
     /// The status of the response to the command.
