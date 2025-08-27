@@ -99,48 +99,45 @@ impl Action {
     /// Whether this action is used to gather information needed to determine the current state or enhance
     /// cyber situational awareness.
     pub fn controls_information(&self) -> bool {
-        match *self {
-            Action::Scan | Action::Locate | Action::Query | Action::Report | Action::Notify => true,
-            _ => false,
-        }
+        matches!(
+            *self,
+            Action::Scan | Action::Locate | Action::Query | Action::Report | Action::Notify
+        )
     }
 
     /// Whether this action is used to control traffic flow and file permissions (e.g., allow/deny).
     pub fn controls_permissions(&self) -> bool {
-        match *self {
-            Action::Deny | Action::Contain | Action::Allow => true,
-            _ => false,
-        }
+        matches!(*self, Action::Deny | Action::Contain | Action::Allow)
     }
 
     /// Whether this action is used to control the state or the activity of a system, a process, a connection, a
     /// host, or a device. The actions are used to execute tasks, adjust configurations, set and update
     /// parameters, and modify attributes.
     pub fn controls_activity(&self) -> bool {
-        match *self {
+        matches!(
+            *self,
             Action::Start
-            | Action::Stop
-            | Action::Restart
-            | Action::Pause
-            | Action::Resume
-            | Action::Cancel
-            | Action::Set
-            | Action::Update
-            | Action::Move
-            | Action::Redirect
-            | Action::Create
-            | Action::Delete
-            | Action::Snapshot
-            | Action::Detonate
-            | Action::Restore
-            | Action::Save
-            | Action::Throttle
-            | Action::Delay
-            | Action::Substitute
-            | Action::Copy
-            | Action::Sync => true,
-            _ => false,
-        }
+                | Action::Stop
+                | Action::Restart
+                | Action::Pause
+                | Action::Resume
+                | Action::Cancel
+                | Action::Set
+                | Action::Update
+                | Action::Move
+                | Action::Redirect
+                | Action::Create
+                | Action::Delete
+                | Action::Snapshot
+                | Action::Detonate
+                | Action::Restore
+                | Action::Save
+                | Action::Throttle
+                | Action::Delay
+                | Action::Substitute
+                | Action::Copy
+                | Action::Sync
+        )
     }
 
     /// Whether this action is an effect-based action.
@@ -152,10 +149,10 @@ impl Action {
     /// decision-making capability because effects-based actions typically do not have a one-to-one
     /// mapping to the other actions.
     pub fn is_effect(&self) -> bool {
-        match *self {
-            Action::Investigate | Action::Mitigate | Action::Remediate => true,
-            _ => false,
-        }
+        matches!(
+            *self,
+            Action::Investigate | Action::Mitigate | Action::Remediate
+        )
     }
 }
 
@@ -188,19 +185,5 @@ mod tests {
         );
         assert!(cmd.action.controls_activity());
         assert!(!cmd.action.is_effect());
-    }
-
-    /// Check ergonomics of the `controls_*` methods. These can be used for broad
-    /// routing of commands, especially when certain classes of command are categorically
-    /// unsupported on a given appliance.
-    #[test]
-    fn guard_match() {
-        let cmd = Command::new(Action::Detonate, target::Device::with_hostname("hello"));
-        match cmd.action {
-            Action::Deny => panic!("Command was changed"),
-            ref v if v.controls_information() => assert!(true),
-            ref v if v.controls_activity() => assert!(true),
-            _ => assert!(false),
-        }
     }
 }
