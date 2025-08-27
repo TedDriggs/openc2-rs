@@ -6,23 +6,21 @@
 //! # Crate Purpose
 //! This crate helps actuator implementers and other cybersecurity vendors interact with OpenC2 messages.
 
-#[macro_use]
-extern crate from_variants;
-
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-
 pub mod actuator;
-pub mod target;
 mod command;
+mod data;
+mod message;
 mod response;
+pub mod target;
 
 #[doc(inline)]
 pub use actuator::Actuator;
 
 #[doc(inline)]
 pub use command::{Action, Command};
+
+#[doc(inline)]
+pub use data::*;
 
 #[doc(inline)]
 pub use target::Target;

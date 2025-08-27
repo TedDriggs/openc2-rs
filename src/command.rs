@@ -1,29 +1,31 @@
-use {Actuator, Target};
+use crate::{Actuator, CommandId, DateTime, Duration, Extensions, ResponseType, Target};
+use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 /// An OpenC2 command communicates an action to be performed on a target.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Command {
     /// The task or activity to be performed.
     pub action: Action,
     /// The object of the action. The action is performed on the target.
     pub target: Target,
+    pub args: Option<Args>,
     /// The object which will perform the action on the target.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub actuator: Option<Actuator>,
-    /// A hidden field which forces callers to create commands using
-    /// the public methods rather than struct literals.
-    #[serde(default, skip_serializing)]
-    __extensible: (),
+    pub command_id: Option<CommandId>,
 }
 
 impl Command {
     /// Create a new command without an actuator.
-    pub fn new<T: Into<Target>>(action: Action, target: T) -> Self {
+    pub fn new(action: Action, target: impl Into<Target>) -> Self {
         Self {
             action,
             target: target.into(),
+            args: None,
             actuator: None,
-            __extensible: (),
+            command_id: None,
         }
     }
 
@@ -36,8 +38,9 @@ impl Command {
         Self {
             action,
             target: target.into(),
+            args: None,
             actuator: Some(actuator.into()),
-            __extensible: (),
+            command_id: None,
         }
     }
 }
@@ -48,6 +51,7 @@ impl Command {
 /// that prevents exhaustive matching.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum Action {
     /// The ‘scan’ action is the systematic examination of some aspect of the entity or
     /// its environment in order to obtain information.
@@ -89,8 +93,6 @@ pub enum Action {
     Investigate,
     Mitigate,
     Remediate,
-    #[doc(hidden)]
-    NonExhaustive,
 }
 
 impl Action {
@@ -157,21 +159,30 @@ impl Action {
     }
 }
 
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Args {
+    pub start_time: Option<DateTime>,
+    pub stop_time: Option<DateTime>,
+    pub duration: Option<Duration>,
+    pub response_requested: Option<ResponseType>,
+    #[serde(flatten, default, skip_serializing_if = "Extensions::is_empty")]
+    pub extensions: Extensions,
+}
+
 #[cfg(test)]
 mod tests {
-    use {actuator, target};
     use super::{Action, Command};
+    use crate::{actuator, target};
 
     #[test]
     fn rsa_demo() {
         let cmd = Command::with_actuator(
             Action::Delete,
             target::File {
-                name: "Hello".into(),
-                hashes: (),
-                device: target::Device {
-                    hostname: "hello".into(),
-                }.into(),
+                name: Some("Hello".into()),
+                hashes: None,
+                path: None,
             },
             actuator::Endpoint::new("host"),
         );
