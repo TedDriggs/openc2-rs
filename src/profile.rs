@@ -1,15 +1,17 @@
 //! Types for declaring entities that will execute actions on targets.
 
+use std::borrow::Cow;
+
 use serde::{Deserialize, Serialize, Serializer, de::DeserializeOwned, ser::SerializeMap};
 
 /// Information about the entity that will execute the action on the target.
 #[derive(Debug, Clone, PartialEq, Hash)]
 #[non_exhaustive]
-pub struct Actuator<V>(String, V);
+pub struct Profile<V>(Cow<'static, str>, V);
 
-impl<V> Actuator<V> {
-    pub fn new(ns: impl Into<String>, value: V) -> Self {
-        Actuator(ns.into(), value)
+impl<V> Profile<V> {
+    pub fn new(ns: impl Into<Cow<'static, str>>, value: V) -> Self {
+        Profile(ns.into(), value)
     }
 
     pub fn ns(&self) -> &str {
@@ -18,7 +20,7 @@ impl<V> Actuator<V> {
 }
 
 #[cfg(feature = "json")]
-impl Actuator<serde_json::Value> {
+impl Profile<serde_json::Value> {
     pub fn get<U: DeserializeOwned>(&self, ns: &str) -> Option<serde_json::Result<U>> {
         if self.0 == ns {
             Some(serde_json::from_value(self.1.clone()))
@@ -29,7 +31,7 @@ impl Actuator<serde_json::Value> {
 }
 
 #[cfg(feature = "cbor")]
-impl Actuator<serde_cbor::Value> {
+impl Profile<serde_cbor::Value> {
     pub fn get<U: DeserializeOwned>(&self, ns: &str) -> Option<serde_cbor::Result<U>> {
         if self.0 == ns {
             Some(serde_cbor::value::from_value(self.1.clone()))
@@ -39,7 +41,7 @@ impl Actuator<serde_cbor::Value> {
     }
 }
 
-impl<V: Serialize> Serialize for Actuator<V> {
+impl<V: Serialize> Serialize for Profile<V> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut map = serializer.serialize_map(Some(1))?;
         map.serialize_entry(&self.0, &self.1)?;
@@ -47,7 +49,7 @@ impl<V: Serialize> Serialize for Actuator<V> {
     }
 }
 
-impl<'de, V: Deserialize<'de>> Deserialize<'de> for Actuator<V> {
+impl<'de, V: Deserialize<'de>> Deserialize<'de> for Profile<V> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -55,7 +57,7 @@ impl<'de, V: Deserialize<'de>> Deserialize<'de> for Actuator<V> {
         struct ActuatorVisitor<V>(std::marker::PhantomData<V>);
 
         impl<'de, V: Deserialize<'de>> serde::de::Visitor<'de> for ActuatorVisitor<V> {
-            type Value = Actuator<V>;
+            type Value = Profile<V>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("a map with a single key-value pair")
@@ -69,7 +71,7 @@ impl<'de, V: Deserialize<'de>> Deserialize<'de> for Actuator<V> {
                     if access.next_entry::<String, V>()?.is_some() {
                         return Err(serde::de::Error::custom("expected a single key-value pair"));
                     }
-                    Ok(Actuator(key, value))
+                    Ok(Profile(key, value))
                 } else {
                     Err(serde::de::Error::custom("expected a single key-value pair"))
                 }
@@ -78,18 +80,4 @@ impl<'de, V: Deserialize<'de>> Deserialize<'de> for Actuator<V> {
 
         deserializer.deserialize_map(ActuatorVisitor(std::marker::PhantomData))
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Hash)]
-pub struct Endpoint(String);
-
-impl Endpoint {
-    pub fn new(name: impl Into<String>) -> Self {
-        Endpoint(name.into())
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Hash)]
-pub struct NetworkRouter {
-    actuator_id: String,
 }

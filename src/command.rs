@@ -1,4 +1,4 @@
-use crate::{Actuator, CommandId, DateTime, Duration, Extensions, ResponseType, Target};
+use crate::{CommandId, DateTime, Duration, Extensions, Profile, ResponseType, Target};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -14,7 +14,7 @@ pub struct Command<V> {
     #[serde(default, skip_serializing_if = "Args::is_empty")]
     pub args: Args<V>,
     /// The object which will perform the action on the target.
-    pub actuator: Option<Actuator<V>>,
+    pub actuator: Option<Profile<V>>,
     pub command_id: Option<CommandId>,
 }
 

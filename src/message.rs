@@ -4,46 +4,74 @@ use from_variants::FromVariants;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_with::skip_serializing_none;
 
-use crate::{Command, DateTime, MessageType, Response, response::Status};
+use crate::{
+    Command, CommandId, DateTime, Extensions, MessageType, Notification, Response, response::Status,
+};
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct Headers<V> {
+    pub request_id: Option<CommandId>,
+    pub created: Option<DateTime>,
+    pub from: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub to: Vec<String>,
+    #[serde(flatten, default, skip_serializing_if = "Extensions::is_empty")]
+    pub extensions: Extensions<V>,
+}
+
+impl<V> Headers<V> {
+    pub fn is_empty(&self) -> bool {
+        self.request_id.is_none()
+            && self.created.is_none()
+            && self.from.is_none()
+            && self.to.is_empty()
+            && self.extensions.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+#[serde(bound = "V: Serialize + DeserializeOwned + Default")]
+pub struct Body<V> {
+    pub openc2: Content<V>,
+}
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 #[serde(bound = "V: Serialize + DeserializeOwned + Default")]
 pub struct Message<V> {
+    #[serde(default, skip_serializing_if = "Headers::is_empty")]
+    pub headers: Headers<V>,
     pub content_type: Cow<'static, str>,
-    #[serde(flatten)]
-    pub content: Content<V>,
+    pub body: Body<V>,
     pub status_code: Option<Status>,
-    pub request_id: Option<String>,
-    pub created: Option<DateTime>,
-    pub from: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub to: Vec<String>,
 }
 
 impl<V> Message<V> {
-    /// The value for [`Message::content_type`] for v1 of the OpenC2 specification.
-    pub const CONTENT_TYPE_V1: &str = "application/openc2";
+    /// The value for [`Message::content_type`] for v1 and v2 of the OpenC2 specification.
+    pub const CONTENT_TYPE: &str = "application/openc2";
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromVariants)]
 #[serde(
-    tag = "msg_type",
-    content = "content",
     rename_all = "snake_case",
     bound = "V: Serialize + DeserializeOwned + Default"
 )]
 pub enum Content<V> {
-    Command(Command<V>),
+    Request(Command<V>),
     Response(Response<V>),
+    Notification(Notification<V>),
 }
 
 impl<V> Content<V> {
     pub fn message_type(&self) -> MessageType {
         match self {
-            Content::Command(_) => MessageType::Command,
+            Content::Request(_) => MessageType::Request,
             Content::Response(_) => MessageType::Response,
+            Content::Notification(_) => MessageType::Notification,
         }
     }
 }
@@ -74,10 +102,10 @@ mod tests {
         ))
         .unwrap();
 
-        assert_eq!(example.content.message_type(), MessageType::Command);
+        assert_eq!(example.body.openc2.message_type(), MessageType::Request);
         assert!(matches!(
-            example.content,
-            Content::Command(Command {
+            example.body.openc2,
+            Content::Request(Command {
                 target: Target::File(_),
                 ..
             })
