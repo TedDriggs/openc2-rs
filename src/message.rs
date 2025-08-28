@@ -75,17 +75,22 @@ mod tests {
     fn deserialize() {
         let example: Message<serde_json::Value> = from_value(json!(
             {
-                "request_id": "123",
-                "content_type": "application/openc2",
-                "msg_type": "command",
-                "content": {
-                    "action": "deny",
-                    "target": {
-                        "file": {
-                            "path": "/hello.pdf"
+                "headers": {
+                    "request_id": "123",
+                },
+                "body": {
+                    "openc2": {
+                        "request": {
+                            "action": "deny",
+                            "target": {
+                                "file": {
+                                    "path": "/hello.pdf"
+                                }
+                            }
                         }
                     }
-                }
+                },
+                "content_type": "application/openc2",
             }
         ))
         .unwrap();
