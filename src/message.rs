@@ -4,9 +4,7 @@ use from_variants::FromVariants;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_with::skip_serializing_none;
 
-use crate::{
-    Command, CommandId, DateTime, Extensions, MessageType, Notification, Response, response::Status,
-};
+use crate::{Command, CommandId, DateTime, Extensions, Notification, Response, response::Status};
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -66,19 +64,9 @@ pub enum Content<V> {
     Notification(Notification<V>),
 }
 
-impl<V> Content<V> {
-    pub fn message_type(&self) -> MessageType {
-        match self {
-            Content::Request(_) => MessageType::Request,
-            Content::Response(_) => MessageType::Response,
-            Content::Notification(_) => MessageType::Notification,
-        }
-    }
-}
-
 #[cfg(all(test, feature = "json"))]
 mod tests {
-    use crate::{Command, Content, MessageType, Target};
+    use crate::{Command, Content, Target};
 
     use super::Message;
     use serde_json::{from_value, json};
@@ -102,7 +90,6 @@ mod tests {
         ))
         .unwrap();
 
-        assert_eq!(example.body.openc2.message_type(), MessageType::Request);
         assert!(matches!(
             example.body.openc2,
             Content::Request(Command {
