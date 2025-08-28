@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use from_variants::FromVariants;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_with::skip_serializing_none;
 
 use crate::{Command, DateTime, MessageType, Response, response::Status};
@@ -9,10 +9,11 @@ use crate::{Command, DateTime, MessageType, Response, response::Status};
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct Message {
+#[serde(bound = "V: Serialize + DeserializeOwned + Default")]
+pub struct Message<V> {
     pub content_type: Cow<'static, str>,
     #[serde(flatten)]
-    pub content: Content,
+    pub content: Content<V>,
     pub status_code: Option<Status>,
     pub request_id: Option<String>,
     pub created: Option<DateTime>,
@@ -21,19 +22,24 @@ pub struct Message {
     pub to: Vec<String>,
 }
 
-impl Message {
+impl<V> Message<V> {
     /// The value for [`Message::content_type`] for v1 of the OpenC2 specification.
     pub const CONTENT_TYPE_V1: &str = "application/openc2";
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromVariants)]
-#[serde(tag = "msg_type", content = "content", rename_all = "snake_case")]
-pub enum Content {
-    Command(Command),
-    Response(Response),
+#[serde(
+    tag = "msg_type",
+    content = "content",
+    rename_all = "snake_case",
+    bound = "V: Serialize + DeserializeOwned + Default"
+)]
+pub enum Content<V> {
+    Command(Command<V>),
+    Response(Response<V>),
 }
 
-impl Content {
+impl<V> Content<V> {
     pub fn message_type(&self) -> MessageType {
         match self {
             Content::Command(_) => MessageType::Command,
@@ -42,7 +48,7 @@ impl Content {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "json"))]
 mod tests {
     use crate::{Command, Content, MessageType, Target};
 
@@ -51,7 +57,7 @@ mod tests {
 
     #[test]
     fn deserialize() {
-        let example: Message = from_value(json!(
+        let example: Message<serde_json::Value> = from_value(json!(
             {
                 "request_id": "123",
                 "content_type": "application/openc2",

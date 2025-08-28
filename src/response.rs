@@ -12,19 +12,20 @@ use crate::{ActionTargets, Extensions};
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct Response {
+pub struct Response<V> {
     /// The status of the response to the command.
     pub status: Status,
     /// A description providing additional information about the status of the response.
     pub status_text: Option<String>,
-    pub results: Option<Results>,
+    #[serde(default)]
+    pub results: Option<Results<V>>,
 }
 
 pub type Status = u16;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct Results {
+pub struct Results<V> {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub versions: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -34,5 +35,5 @@ pub struct Results {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rate_limit: Option<u64>,
     #[serde(flatten, default, skip_serializing_if = "Extensions::is_empty")]
-    pub extensions: Extensions,
+    pub extensions: Extensions<V>,
 }

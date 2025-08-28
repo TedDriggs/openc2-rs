@@ -11,11 +11,11 @@ pub type DateTime = ();
 
 pub type Duration = u64;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(transparent)]
-pub struct Extensions(IndexMap<String, serde_json::Value>);
+pub struct Extensions<V>(IndexMap<String, V>);
 
-impl Extensions {
+impl<V> Extensions<V> {
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -28,15 +28,46 @@ impl Extensions {
         self.0.contains_key(key)
     }
 
+    pub fn get_raw(&self, key: &str) -> Option<&V> {
+        self.0.get(key)
+    }
+}
+
+#[cfg(feature = "json")]
+impl Extensions<serde_json::Value> {
     pub fn get<T: serde::de::DeserializeOwned>(
         &self,
         key: &str,
     ) -> Option<Result<T, serde_json::Error>> {
         self.0.get(key).map(|v| serde_json::from_value(v.clone()))
     }
+}
 
-    pub fn get_raw(&self, key: &str) -> Option<&serde_json::Value> {
-        self.0.get(key)
+#[cfg(feature = "cbor")]
+impl Extensions<serde_cbor::Value> {
+    pub fn get<T: serde::de::DeserializeOwned>(
+        &self,
+        key: &str,
+    ) -> Option<Result<T, serde_cbor::Error>> {
+        self.0
+            .get(key)
+            .map(|v| serde_cbor::value::from_value(v.clone()))
+    }
+}
+
+impl<V> Default for Extensions<V> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<'de, V: Deserialize<'de>> Deserialize<'de> for Extensions<V> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let map = IndexMap::<String, V>::deserialize(deserializer)?;
+        Ok(Self(map))
     }
 }
 

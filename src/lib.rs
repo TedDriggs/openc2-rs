@@ -29,4 +29,29 @@ pub use message::{Content, Message};
 pub use target::Target;
 
 #[doc(inline)]
-pub use response::Response;
+pub use response::{Response, Results, Status};
+
+/// Type aliases for JSON-based OpenC2 messages.
+#[cfg(feature = "json")]
+pub mod json {
+    use serde_json::Value;
+
+    pub type Content = super::Content<Value>;
+    pub type Message = super::Message<Value>;
+    pub type Command = super::Command<Value>;
+    pub type Response = super::Response<Value>;
+    pub type Extensions = super::Extensions<Value>;
+    pub type Results = super::Results<Value>;
+}
+
+/// Type aliases for CBOR-based OpenC2 messages.
+#[cfg(feature = "cbor")]
+pub mod cbor {
+    use serde_cbor::Value;
+    pub type Content = super::Content<Value>;
+    pub type Message = super::Message<Value>;
+    pub type Command = super::Command<Value>;
+    pub type Response = super::Response<Value>;
+    pub type Extensions = super::Extensions<Value>;
+    pub type Results = super::Results<Value>;
+}

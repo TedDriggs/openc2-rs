@@ -6,24 +6,25 @@ use serde_with::skip_serializing_none;
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct Command {
+pub struct Command<V> {
     /// The task or activity to be performed.
     pub action: Action,
     /// The object of the action. The action is performed on the target.
     pub target: Target,
-    pub args: Option<Args>,
+    #[serde(default, skip_serializing_if = "Args::is_empty")]
+    pub args: Args<V>,
     /// The object which will perform the action on the target.
     pub actuator: Option<Actuator>,
     pub command_id: Option<CommandId>,
 }
 
-impl Command {
+impl<V> Command<V> {
     /// Create a new command without an actuator.
     pub fn new(action: Action, target: impl Into<Target>) -> Self {
         Self {
             action,
             target: target.into(),
-            args: None,
+            args: Default::default(),
             actuator: None,
             command_id: None,
         }
@@ -38,7 +39,7 @@ impl Command {
         Self {
             action,
             target: target.into(),
-            args: None,
+            args: Default::default(),
             actuator: Some(actuator.into()),
             command_id: None,
         }
@@ -158,23 +159,45 @@ impl Action {
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Args {
+pub struct Args<V> {
     pub start_time: Option<DateTime>,
     pub stop_time: Option<DateTime>,
     pub duration: Option<Duration>,
     pub response_requested: Option<ResponseType>,
     #[serde(flatten, default, skip_serializing_if = "Extensions::is_empty")]
-    pub extensions: Extensions,
+    pub extensions: Extensions<V>,
 }
 
-#[cfg(test)]
+impl<V> Args<V> {
+    pub fn is_empty(&self) -> bool {
+        self.start_time.is_none()
+            && self.stop_time.is_none()
+            && self.duration.is_none()
+            && self.response_requested.is_none()
+            && self.extensions.is_empty()
+    }
+}
+
+impl<V> Default for Args<V> {
+    fn default() -> Self {
+        Self {
+            start_time: None,
+            stop_time: None,
+            duration: None,
+            response_requested: None,
+            extensions: Extensions::default(),
+        }
+    }
+}
+
+#[cfg(all(test, feature = "json"))]
 mod tests {
     use super::{Action, Command};
     use crate::{actuator, target};
 
     #[test]
     fn rsa_demo() {
-        let cmd = Command::with_actuator(
+        let cmd = Command::<serde_json::Value>::with_actuator(
             Action::Delete,
             target::File {
                 name: Some("Hello".into()),
