@@ -14,7 +14,7 @@ pub struct Command<V> {
     #[serde(default, skip_serializing_if = "Args::is_empty")]
     pub args: Args<V>,
     /// The object which will perform the action on the target.
-    pub actuator: Option<Actuator>,
+    pub actuator: Option<Actuator<V>>,
     pub command_id: Option<CommandId>,
 }
 
@@ -26,21 +26,6 @@ impl<V> Command<V> {
             target: target.into(),
             args: Default::default(),
             actuator: None,
-            command_id: None,
-        }
-    }
-
-    /// Create a new command including an actuator.
-    pub fn with_actuator<T, A>(action: Action, target: T, actuator: A) -> Self
-    where
-        T: Into<Target>,
-        A: Into<Actuator>,
-    {
-        Self {
-            action,
-            target: target.into(),
-            args: Default::default(),
-            actuator: Some(actuator.into()),
             command_id: None,
         }
     }
@@ -187,26 +172,5 @@ impl<V> Default for Args<V> {
             response_requested: None,
             extensions: Extensions::default(),
         }
-    }
-}
-
-#[cfg(all(test, feature = "json"))]
-mod tests {
-    use super::{Action, Command};
-    use crate::{actuator, target};
-
-    #[test]
-    fn rsa_demo() {
-        let cmd = Command::<serde_json::Value>::with_actuator(
-            Action::Delete,
-            target::File {
-                name: Some("Hello".into()),
-                hashes: None,
-                path: None,
-            },
-            actuator::Endpoint::new("host"),
-        );
-        assert!(cmd.action.controls_activity());
-        assert!(!cmd.action.is_effect());
     }
 }
