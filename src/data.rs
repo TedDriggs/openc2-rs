@@ -19,7 +19,8 @@ pub type ActionTargets = IndexMap<Action, IndexSet<TargetType>>;
 
 pub type CommandId = String;
 
-pub type DateTime = ();
+/// Epoch milliseconds
+pub type DateTime = u64;
 
 pub type Duration = u64;
 
