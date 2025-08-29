@@ -76,10 +76,7 @@ impl<V> Message<V> {
             // Per Spec:
             // A Consumer receiving a Command with command_id absent and request_id present in the
             // header of the Message MUST use the value of request_id as the command_id.
-            Content::Request(cmd) => cmd
-                .command_id
-                .as_ref()
-                .or_else(|| self.headers.request_id.as_ref()),
+            Content::Request(cmd) => cmd.command_id.as_ref().or(self.headers.request_id.as_ref()),
             Content::Response(_) => None,
             Content::Notification(_) => None,
         }
