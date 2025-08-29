@@ -8,11 +8,14 @@
 
 mod command;
 mod data;
+mod error;
 mod message;
 mod notification;
 mod profile;
 mod response;
 pub mod target;
+
+pub use error::Error;
 
 #[doc(inline)]
 pub use profile::Profile;

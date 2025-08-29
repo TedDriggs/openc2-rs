@@ -1,0 +1,196 @@
+use std::iter;
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error)]
+#[error("{kind}")]
+pub struct Error {
+    kind: ErrorKind,
+}
+
+impl Error {
+    pub fn accumulator() -> Accumulator {
+        Accumulator::default()
+    }
+}
+
+impl IntoIterator for Error {
+    type Item = Error;
+    type IntoIter = IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.into()
+    }
+}
+
+impl<'a> IntoIterator for &'a Error {
+    type Item = &'a Error;
+    type IntoIter = Iter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self.kind {
+            ErrorKind::Multiple(ref errors) => Iter::Multiple(errors.iter()),
+            _ => Iter::Single(iter::once(self)),
+        }
+    }
+}
+
+pub enum Iter<'a> {
+    Single(iter::Once<&'a Error>),
+    Multiple(std::slice::Iter<'a, Error>),
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = &'a Error;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Iter::Single(iter) => iter.next(),
+            Iter::Multiple(iter) => iter.next(),
+        }
+    }
+}
+
+pub enum IntoIter {
+    Single(std::iter::Once<Error>),
+    Multiple(std::vec::IntoIter<Error>),
+}
+
+impl Iterator for IntoIter {
+    type Item = Error;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            IntoIter::Single(iter) => iter.next(),
+            IntoIter::Multiple(iter) => iter.next(),
+        }
+    }
+}
+
+impl From<Error> for IntoIter {
+    fn from(err: Error) -> Self {
+        match err.kind {
+            ErrorKind::Multiple(errors) => IntoIter::Multiple(errors.into_iter()),
+            _ => IntoIter::Single(iter::once(err)),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Accumulator {
+    errors: Option<Vec<Error>>,
+}
+
+impl Accumulator {
+    pub fn push(&mut self, error: impl Into<Error>) {
+        self.errors
+            .as_mut()
+            .expect("Accumulator already finalized")
+            .push(error.into());
+    }
+
+    pub fn handle<T>(&mut self, result: Result<T, impl Into<Error>>) -> Option<T> {
+        match result {
+            Ok(value) => Some(value),
+            Err(err) => {
+                self.push(err.into());
+                None
+            }
+        }
+    }
+
+    pub fn handle_in<T>(&mut self, op: impl Fn() -> Result<T, Error>) -> Option<T> {
+        match op() {
+            Ok(value) => Some(value),
+            Err(err) => {
+                self.push(err);
+                None
+            }
+        }
+    }
+
+    pub fn checkpoint(&mut self) -> Result<(), Error> {
+        let has_errors = !self
+            .errors
+            .as_ref()
+            .expect("Accumulator already finalized")
+            .is_empty();
+        if !has_errors {
+            return Ok(());
+        }
+
+        let mut errors = self.errors.take().expect("Accumulator already finalized");
+        match errors.len() {
+            0 => Ok(()),
+            1 => Err(errors.drain(..).next().unwrap()),
+            _ => Err(Error {
+                kind: ErrorKind::Multiple(errors),
+            }),
+        }
+    }
+
+    pub fn finish(mut self) -> Result<(), Error> {
+        self.checkpoint()?;
+        self.errors = None;
+        Ok(())
+    }
+
+    pub fn finish_with<T>(self, value: T) -> Result<T, Error> {
+        self.finish().map(|_| value)
+    }
+}
+
+impl Default for Accumulator {
+    fn default() -> Self {
+        Self {
+            errors: Some(Vec::new()),
+        }
+    }
+}
+
+impl Drop for Accumulator {
+    fn drop(&mut self) {
+        if self.errors.is_some() {
+            panic!("dropped Accumulator without finalizing");
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error)]
+#[error("{path}: {message}")]
+pub struct ValidationError {
+    pub path: String,
+    pub message: String,
+}
+
+impl ValidationError {
+    pub fn new(path: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            path: path.into(),
+            message: message.into(),
+        }
+    }
+
+    pub fn missing_required_field(path: impl Into<String>) -> Self {
+        let path = path.into();
+        let field = path.rsplit('.').next().unwrap_or(&path).to_string();
+        Self::new(path, format!("missing required field `{}`", field))
+    }
+}
+
+impl From<ValidationError> for Error {
+    fn from(err: ValidationError) -> Self {
+        Self {
+            kind: ErrorKind::Validation(err),
+        }
+    }
+}
+
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error)]
+enum ErrorKind {
+    #[error("validation error: {0}")]
+    Validation(ValidationError),
+    #[error("multiple errors")]
+    Multiple(Vec<Error>),
+}

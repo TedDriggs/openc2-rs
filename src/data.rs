@@ -79,11 +79,17 @@ pub struct Hashes {
     pub sha256: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum ResponseType {
     None,
     Ack,
     Status,
     Complete,
+}
+
+impl ResponseType {
+    pub fn requires_request_id(self) -> bool {
+        !matches!(self, ResponseType::None)
+    }
 }

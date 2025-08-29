@@ -4,7 +4,10 @@ use from_variants::FromVariants;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_with::skip_serializing_none;
 
-use crate::{Command, CommandId, DateTime, Extensions, Notification, Response, response::Status};
+use crate::{
+    Command, CommandId, DateTime, Error, Extensions, Notification, Response,
+    error::ValidationError, response::Status,
+};
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -51,6 +54,47 @@ pub struct Message<V> {
 impl<V> Message<V> {
     /// The value for [`Message::content_type`] for v1 and v2 of the OpenC2 specification.
     pub const CONTENT_TYPE: &str = "application/openc2";
+
+    pub fn command_id(&self) -> Option<&CommandId> {
+        match &self.body.openc2 {
+            // Per Spec:
+            // A Consumer receiving a Command with command_id absent and request_id present in the
+            // header of the Message MUST use the value of request_id as the command_id.
+            Content::Request(cmd) => cmd
+                .command_id
+                .as_ref()
+                .or_else(|| self.headers.request_id.as_ref()),
+            Content::Response(_) => None,
+            Content::Notification(_) => None,
+        }
+    }
+
+    pub fn check(&self) -> Result<(), Error> {
+        let mut acc = Error::accumulator();
+
+        match &self.body.openc2 {
+            Content::Request(cmd) => {
+                if let Some(rsp) = cmd.args.response_requested
+                    && rsp.requires_request_id()
+                    && self.headers.request_id.is_none()
+                {
+                    acc.push(ValidationError::missing_required_field(
+                        "headers.request_id",
+                    ));
+                }
+            }
+            Content::Response(_) => {
+                if self.status_code.is_none() {
+                    acc.push(ValidationError::missing_required_field(
+                        "headers.status_code",
+                    ));
+                }
+            }
+            Content::Notification(_) => {}
+        }
+
+        acc.finish()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromVariants)]
