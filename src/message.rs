@@ -46,11 +46,9 @@ impl<V> Default for Headers<V> {
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromVariants)]
 #[non_exhaustive]
-#[serde(
-    rename = "snake_case",
-    bound = "V: Serialize + DeserializeOwned + Default"
-)]
+#[serde(bound = "V: Serialize + DeserializeOwned + Default")]
 pub enum Body<V> {
+    #[serde(rename = "openc2")]
     OpenC2(Content<V>),
 }
 
