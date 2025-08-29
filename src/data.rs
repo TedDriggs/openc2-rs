@@ -9,9 +9,11 @@ use crate::{Action, TargetType};
 mod ipnet;
 mod nsid;
 pub mod primitive;
+mod version;
 
 pub use ipnet::{IpV4Net, IpV6Net};
 pub use nsid::Nsid;
+pub use version::Version;
 
 pub type ActionTargets = IndexMap<Action, IndexSet<TargetType>>;
 
