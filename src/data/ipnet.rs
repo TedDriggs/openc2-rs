@@ -73,11 +73,11 @@ impl From<Ipv4Addr> for IpV4Net {
 )]
 pub struct IpV6Net {
     pub address: Ipv6Addr,
-    pub prefix_len: u64,
+    pub prefix_len: u8,
 }
 
 impl IpV6Net {
-    pub fn new(address: Ipv6Addr, prefix_len: u64) -> Result<Self, ValidationError> {
+    pub fn new(address: Ipv6Addr, prefix_len: u8) -> Result<Self, ValidationError> {
         if prefix_len > 128 {
             return Err(ValidationError::new(
                 "ipv6_net",
@@ -115,7 +115,7 @@ impl FromStr for IpV6Net {
         let address = addr
             .parse()
             .map_err(|e| ValidationError::new("ipv6_net", format!("Invalid IPv6 address: {e}")))?;
-        let prefix_len: u64 = prefix
+        let prefix_len: u8 = prefix
             .parse()
             .map_err(|e| ValidationError::new("ipv6_net", format!("Invalid prefix length: {e}")))?;
         Self::new(address, prefix_len)
