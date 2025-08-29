@@ -1,4 +1,7 @@
-use crate::{CommandId, DateTime, Duration, Extensions, Profile, ResponseType, Target};
+use crate::{
+    Check, CommandId, DateTime, Duration, Error, Extensions, Profile, ResponseType, Target,
+    error::ValidationError,
+};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -149,6 +152,8 @@ pub struct Args<V> {
     pub stop_time: Option<DateTime>,
     pub duration: Option<Duration>,
     pub response_requested: Option<ResponseType>,
+    /// A human-readable note to annotate or provide information regarding the action.
+    pub comment: Option<String>,
     #[serde(flatten, default, skip_serializing_if = "Extensions::is_empty")]
     pub extensions: Extensions<V>,
 }
@@ -159,7 +164,22 @@ impl<V> Args<V> {
             && self.stop_time.is_none()
             && self.duration.is_none()
             && self.response_requested.is_none()
+            && self.comment.is_none()
             && self.extensions.is_empty()
+    }
+}
+
+impl<V> Check for Args<V> {
+    fn check(&self) -> Result<(), Error> {
+        let mut acc = Error::accumulator();
+        if self.start_time.is_some() && self.stop_time.is_some() && self.duration.is_some() {
+            acc.push(ValidationError::new(
+                "duration",
+                "Only two of start_time, stop_time, and duration may be specified at once",
+            ));
+        }
+
+        acc.finish()
     }
 }
 
@@ -170,6 +190,7 @@ impl<V> Default for Args<V> {
             stop_time: None,
             duration: None,
             response_requested: None,
+            comment: None,
             extensions: Extensions::default(),
         }
     }

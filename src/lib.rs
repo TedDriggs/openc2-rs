@@ -6,6 +6,7 @@
 //! # Crate Purpose
 //! This crate helps actuator implementers and other cybersecurity vendors interact with OpenC2 messages.
 
+mod check;
 mod command;
 mod data;
 mod error;
@@ -14,6 +15,8 @@ mod notification;
 mod profile;
 mod response;
 pub mod target;
+
+pub use check::Check;
 
 pub use error::Error;
 
@@ -27,7 +30,7 @@ pub use command::{Action, Command};
 pub use data::*;
 
 #[doc(inline)]
-pub use message::{Content, Message};
+pub use message::{Body, Content, Message};
 
 pub use notification::Notification;
 
