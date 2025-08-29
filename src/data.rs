@@ -1,9 +1,19 @@
-use indexmap::IndexMap;
+use std::borrow::Borrow;
+
+use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ActionTargets {}
+use crate::{Action, TargetType};
+
+mod ipnet;
+mod nsid;
+pub mod primitive;
+
+pub use ipnet::{IpV4Net, IpV6Net};
+pub use nsid::Nsid;
+
+pub type ActionTargets = IndexMap<Action, IndexSet<TargetType>>;
 
 pub type CommandId = String;
 
@@ -11,9 +21,9 @@ pub type DateTime = ();
 
 pub type Duration = u64;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(transparent)]
-pub struct Extensions<V>(IndexMap<String, V>);
+pub struct Extensions<V>(IndexMap<Nsid, V>);
 
 impl<V> Extensions<V> {
     pub fn len(&self) -> usize {
@@ -24,12 +34,12 @@ impl<V> Extensions<V> {
         self.0.is_empty()
     }
 
-    pub fn contains(&self, key: &str) -> bool {
-        self.0.contains_key(key)
+    pub fn contains(&self, key: &impl Borrow<str>) -> bool {
+        self.0.contains_key(key.borrow())
     }
 
-    pub fn get_raw(&self, key: &str) -> Option<&V> {
-        self.0.get(key)
+    pub fn get_raw(&self, key: &impl Borrow<str>) -> Option<&V> {
+        self.0.get(key.borrow())
     }
 }
 
@@ -37,9 +47,9 @@ impl<V> Extensions<V> {
 impl Extensions<serde_json::Value> {
     pub fn get<T: serde::de::DeserializeOwned>(
         &self,
-        key: &str,
+        key: &impl Borrow<str>,
     ) -> Option<Result<T, serde_json::Error>> {
-        self.0.get(key).map(|v| serde_json::from_value(v.clone()))
+        self.get_raw(key).map(|v| serde_json::from_value(v.clone()))
     }
 }
 
@@ -47,10 +57,9 @@ impl Extensions<serde_json::Value> {
 impl Extensions<serde_cbor::Value> {
     pub fn get<T: serde::de::DeserializeOwned>(
         &self,
-        key: &str,
+        key: &impl Borrow<str>,
     ) -> Option<Result<T, serde_cbor::Error>> {
-        self.0
-            .get(key)
+        self.get_raw(key)
             .map(|v| serde_cbor::value::from_value(v.clone()))
     }
 }
@@ -66,9 +75,19 @@ impl<'de, V: Deserialize<'de>> Deserialize<'de> for Extensions<V> {
     where
         D: serde::Deserializer<'de>,
     {
-        let map = IndexMap::<String, V>::deserialize(deserializer)?;
+        let map = IndexMap::<Nsid, V>::deserialize(deserializer)?;
         Ok(Self(map))
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum Feature {
+    Versions,
+    Profiles,
+    Pairs,
+    RateLimit,
 }
 
 #[skip_serializing_none]

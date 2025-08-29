@@ -32,7 +32,7 @@ pub use message::{Content, Message};
 pub use notification::Notification;
 
 #[doc(inline)]
-pub use target::Target;
+pub use target::{Target, TargetType};
 
 #[doc(inline)]
 pub use response::{Response, Results, Status};
@@ -48,6 +48,7 @@ pub mod json {
     pub type Response = super::Response<Value>;
     pub type Extensions = super::Extensions<Value>;
     pub type Results = super::Results<Value>;
+    pub type Target = super::Target<Value>;
 }
 
 /// Type aliases for CBOR-based OpenC2 messages.
@@ -60,4 +61,5 @@ pub mod cbor {
     pub type Response = super::Response<Value>;
     pub type Extensions = super::Extensions<Value>;
     pub type Results = super::Results<Value>;
+    pub type Target = super::Target<Value>;
 }

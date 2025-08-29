@@ -10,7 +10,7 @@ pub struct Command<V> {
     /// The task or activity to be performed.
     pub action: Action,
     /// The object of the action. The action is performed on the target.
-    pub target: Target,
+    pub target: Target<V>,
     #[serde(default, skip_serializing_if = "Args::is_empty")]
     pub args: Args<V>,
     /// The object which will perform the action on the target.
@@ -20,7 +20,7 @@ pub struct Command<V> {
 
 impl<V> Command<V> {
     /// Create a new command without an actuator.
-    pub fn new(action: Action, target: impl Into<Target>) -> Self {
+    pub fn new(action: Action, target: impl Into<Target<V>>) -> Self {
         Self {
             action,
             target: target.into(),
