@@ -17,7 +17,7 @@ pub struct Command<V> {
     #[serde(default, skip_serializing_if = "Args::is_empty")]
     pub args: Args<V>,
     /// The object which will perform the action on the target.
-    pub actuator: Option<Profile<V>>,
+    pub profile: Option<Profile<V>>,
     pub command_id: Option<CommandId>,
 }
 
@@ -28,7 +28,7 @@ impl<V> Command<V> {
             action,
             target: target.into(),
             args: Default::default(),
-            actuator: None,
+            profile: None,
             command_id: None,
         }
     }
