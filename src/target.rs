@@ -7,7 +7,7 @@ use serde_with::{DeserializeFromStr, SerializeDisplay, skip_serializing_none};
 use std::{fmt, str::FromStr};
 
 use crate::{
-    CommandId, Error, Feature, Hashes, IpV4Net, IpV6Net, Nsid, error::ValidationError,
+    CommandId, Error, Feature, Hashes, IpV4Net, IpV6Net, Nsid, Payload, error::ValidationError,
     primitive::Choice,
 };
 
@@ -15,6 +15,7 @@ use crate::{
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum Target<V> {
+    Artifact(Artifact),
     Command(CommandId),
     File(File),
     #[serde(rename = "ipv4_net")]
@@ -36,6 +37,7 @@ impl<V> Target<V> {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
 pub enum TargetType {
+    Artifact,
     Command,
     File,
     #[serde(rename = "ipv4_net")]
@@ -51,6 +53,7 @@ pub enum TargetType {
 impl<V> From<&Target<V>> for TargetType {
     fn from(value: &Target<V>) -> Self {
         match value {
+            Target::Artifact(_) => TargetType::Artifact,
             Target::Command(_) => TargetType::Command,
             Target::File(_) => TargetType::File,
             Target::IpV4Net(_) => TargetType::IpV4Net,
@@ -98,6 +101,14 @@ impl FromStr for ProfileTargetType {
             name: name.to_string(),
         })
     }
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Hash)]
+pub struct Artifact {
+    pub media_type: Option<String>,
+    pub payload: Option<Payload>,
+    pub hashes: Option<Hashes>,
 }
 
 #[skip_serializing_none]

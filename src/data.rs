@@ -3,6 +3,7 @@ use std::borrow::Borrow;
 use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use url::Url;
 
 use crate::{Action, TargetType};
 
@@ -99,6 +100,14 @@ pub struct Hashes {
     pub md5: Option<String>,
     pub sha1: Option<String>,
     pub sha256: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
+pub enum Payload {
+    #[serde(rename = "bin")]
+    Binary(Vec<u8>),
+    Url(Url),
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
