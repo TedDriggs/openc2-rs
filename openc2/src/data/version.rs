@@ -31,13 +31,13 @@ impl FromStr for Version {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (major_str, minor_str) = s
             .split_once('.')
-            .ok_or_else(|| ValidationError::new("", "invalid version format"))?;
+            .ok_or_else(|| ValidationError::new("invalid version format"))?;
         let major = major_str
             .parse()
-            .map_err(|e| ValidationError::new("major", format!("invalid version: {e}")))?;
+            .map_err(|e| ValidationError::new(format!("invalid version: {e}")).at("major"))?;
         let minor = minor_str
             .parse()
-            .map_err(|e| ValidationError::new("minor", format!("invalid version: {e}")))?;
+            .map_err(|e| ValidationError::new(format!("invalid version: {e}")).at("minor"))?;
         Ok(Version { major, minor })
     }
 }

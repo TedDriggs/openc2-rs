@@ -20,7 +20,6 @@ impl IpV4Net {
     pub fn new(address: Ipv4Addr, prefix_len: u8) -> Result<Self, ValidationError> {
         if prefix_len > 32 {
             return Err(ValidationError::new(
-                "ipv4_net",
                 "Prefix length must be between 0 and 32",
             ));
         }
@@ -47,14 +46,14 @@ impl FromStr for IpV4Net {
     type Err = ValidationError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (addr, prefix) = s.split_once('/').ok_or_else(|| {
-            ValidationError::new("ipv4_net", "IPv4 network must be in the format 'x.x.x.x/y'")
+            ValidationError::new("IPv4 network must be in the format 'x.x.x.x/y'")
         })?;
         let address = addr
             .parse()
-            .map_err(|e| ValidationError::new("ipv4_net", format!("Invalid IPv4 address: {e}")))?;
+            .map_err(|e| ValidationError::new(format!("Invalid IPv4 address: {e}")))?;
         let prefix_len: u8 = prefix
             .parse()
-            .map_err(|e| ValidationError::new("ipv4_net", format!("Invalid prefix length: {e}")))?;
+            .map_err(|e| ValidationError::new(format!("Invalid prefix length: {e}")))?;
         Self::new(address, prefix_len)
     }
 }
@@ -80,7 +79,6 @@ impl IpV6Net {
     pub fn new(address: Ipv6Addr, prefix_len: u8) -> Result<Self, ValidationError> {
         if prefix_len > 128 {
             return Err(ValidationError::new(
-                "ipv6_net",
                 "Prefix length must be between 0 and 128",
             ));
         }
@@ -107,17 +105,14 @@ impl FromStr for IpV6Net {
     type Err = ValidationError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (addr, prefix) = s.split_once('/').ok_or_else(|| {
-            ValidationError::new(
-                "ipv6_net",
-                "IPv6 network must be in the format 'x:x:x:x:y:y:y:y/z'",
-            )
+            ValidationError::new("IPv6 network must be in the format 'x:x:x:x:y:y:y:y/z'")
         })?;
         let address = addr
             .parse()
-            .map_err(|e| ValidationError::new("ipv6_net", format!("Invalid IPv6 address: {e}")))?;
+            .map_err(|e| ValidationError::new(format!("Invalid IPv6 address: {e}")))?;
         let prefix_len: u8 = prefix
             .parse()
-            .map_err(|e| ValidationError::new("ipv6_net", format!("Invalid prefix length: {e}")))?;
+            .map_err(|e| ValidationError::new(format!("Invalid prefix length: {e}")))?;
         Self::new(address, prefix_len)
     }
 }
