@@ -12,6 +12,15 @@ use crate::error::ValidationError;
 )]
 pub struct Nsid(Cow<'static, str>);
 
+impl Nsid {
+    pub const fn new_static(text: &'static str) -> Self {
+        if text.len() > 16 {
+            panic!("NSID must be 16 characters or fewer");
+        }
+        Self(Cow::Borrowed(text))
+    }
+}
+
 impl TryFrom<String> for Nsid {
     type Error = ValidationError;
     fn try_from(value: String) -> Result<Self, Self::Error> {

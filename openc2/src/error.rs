@@ -1,14 +1,20 @@
-use std::iter;
+use std::{fmt::Display, iter};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 #[error("{kind}")]
 pub struct Error {
     kind: ErrorKind,
 }
 
 impl Error {
+    pub fn custom(message: impl Display) -> Self {
+        Self {
+            kind: ErrorKind::Custom(message.to_string()),
+        }
+    }
+
     pub fn accumulator() -> Accumulator {
         Accumulator::default()
     }
@@ -186,11 +192,37 @@ impl From<ValidationError> for Error {
     }
 }
 
+#[cfg(feature = "json")]
+impl From<serde_json::Error> for Error {
+    fn from(err: serde_json::Error) -> Self {
+        Self {
+            kind: ErrorKind::Json(err.to_string()),
+        }
+    }
+}
+
+#[cfg(feature = "cbor")]
+impl From<serde_cbor::Error> for Error {
+    fn from(err: serde_cbor::Error) -> Self {
+        Self {
+            kind: ErrorKind::Cbor(err.to_string()),
+        }
+    }
+}
+
 #[non_exhaustive]
-#[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 enum ErrorKind {
     #[error("validation error: {0}")]
     Validation(ValidationError),
+    #[error("{0}")]
+    Custom(String),
+    #[cfg(feature = "json")]
+    #[error("JSON error: {0}")]
+    Json(String),
+    #[cfg(feature = "cbor")]
+    #[error("CBOR error: {0}")]
+    Cbor(String),
     #[error("multiple errors")]
     Multiple(Vec<Error>),
 }

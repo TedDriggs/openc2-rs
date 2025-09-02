@@ -120,7 +120,7 @@ pub struct File {
 }
 
 #[skip_serializing_none]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Device {
     pub hostname: Option<String>,
     pub idn_hostname: Option<String>,

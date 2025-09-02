@@ -22,6 +22,15 @@ impl<K> Choice<K, serde_json::Value> {
     }
 }
 
+#[cfg(feature = "json")]
+impl<K> Choice<K, Choice<String, serde_json::Value>> {
+    pub fn get<V: DeserializeOwned>(&self) -> serde_json::Result<V> {
+        serde_json::from_value(serde_json::json!({
+            self.value.key.clone(): self.value.value
+        }))
+    }
+}
+
 #[cfg(feature = "cbor")]
 impl<K> Choice<K, serde_cbor::Value> {
     pub fn get<V: DeserializeOwned>(&self) -> serde_cbor::Result<V> {

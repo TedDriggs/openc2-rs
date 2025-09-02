@@ -23,6 +23,8 @@ pub type CommandId = String;
 /// Epoch milliseconds
 pub type DateTime = u64;
 
+pub type DomainName = String;
+
 pub type Duration = u64;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]

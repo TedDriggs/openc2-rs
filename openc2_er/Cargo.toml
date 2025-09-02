@@ -4,3 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+from_variants = "1.0.2"
+indexmap = { version = "2.11.0", features = ["serde"] }
+openc2 = { version = "=0.1.0", path = "../openc2" }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_with = "3.14.0"
