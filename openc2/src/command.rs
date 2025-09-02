@@ -1,6 +1,6 @@
 use crate::{
     Check, CommandId, DateTime, Duration, Error, Extensions, Nsid, ResponseType, Target,
-    error::ValidationError, primitive::Choice,
+    error::ValidationError,
 };
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -17,7 +17,7 @@ pub struct Command<V> {
     #[serde(default, skip_serializing_if = "Args::is_empty")]
     pub args: Args<V>,
     /// The object which will perform the action on the target.
-    pub profile: Option<Choice<Nsid, V>>,
+    pub profile: Option<Nsid>,
     pub command_id: Option<CommandId>,
 }
 
