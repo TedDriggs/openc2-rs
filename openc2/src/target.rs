@@ -7,7 +7,7 @@ use serde_with::{DeserializeFromStr, SerializeDisplay, skip_serializing_none};
 use std::{fmt, str::FromStr};
 
 use crate::{
-    CommandId, Error, Feature, Hashes, IpV4Net, IpV6Net, Nsid, Payload, error::ValidationError,
+    CommandId, Feature, Hashes, IpV4Net, IpV6Net, Nsid, Payload, error::ValidationError,
     primitive::Choice,
 };
 
@@ -88,16 +88,13 @@ impl fmt::Display for ProfileTargetType {
 }
 
 impl FromStr for ProfileTargetType {
-    type Err = Error;
+    type Err = ValidationError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (profile, name) = s.split_once('/').ok_or_else(|| {
-            ValidationError::new(
-                "profile target",
-                "Profile target must be in the format 'profile/name'",
-            )
+            ValidationError::new("Profile target must be in the format 'profile/name'")
         })?;
         Ok(Self {
-            profile: Nsid::try_from(profile.to_string())?,
+            profile: Nsid::try_from(profile.to_string()).map_err(|e| e.at("profile"))?,
             name: name.to_string(),
         })
     }

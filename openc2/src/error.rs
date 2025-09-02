@@ -1,6 +1,11 @@
-use std::{fmt::Display, iter};
+use std::{
+    borrow::Cow,
+    collections::VecDeque,
+    fmt::{self, Display},
+    iter,
+};
 
-use serde::{Deserialize, Serialize};
+use from_variants::FromVariants;
 
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("{kind}")]
@@ -15,8 +20,38 @@ impl Error {
         }
     }
 
+    pub fn validation(message: impl Display) -> Self {
+        ValidationError::new(message.to_string()).into()
+    }
+
+    pub fn at(mut self, segment: impl Into<PathSegment>) -> Self {
+        let segment = segment.into();
+        match &mut self.kind {
+            ErrorKind::Validation(ve) => {
+                ve.path.push_front(segment);
+            }
+            ErrorKind::Multiple(errors) => {
+                for err in errors {
+                    *err = err.clone().at(segment.clone());
+                }
+            }
+            _ => {}
+        };
+
+        self
+    }
+
     pub fn accumulator() -> Accumulator {
         Accumulator::default()
+    }
+}
+
+impl Error {
+    pub fn as_validation(&self) -> Option<&ValidationError> {
+        match &self.kind {
+            ErrorKind::Validation(err) => Some(err),
+            _ => None,
+        }
     }
 }
 
@@ -162,25 +197,83 @@ impl Drop for Accumulator {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Path {
+    segments: VecDeque<PathSegment>,
+}
+
+impl Path {
+    pub fn push_front(&mut self, segment: impl Into<PathSegment>) {
+        self.segments.push_front(segment.into());
+    }
+}
+
+impl fmt::Display for Path {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for segment in &self.segments {
+            write!(f, "{segment:#}")?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, FromVariants)]
+pub enum PathSegment {
+    Key(Cow<'static, str>),
+    Number(usize),
+}
+
+impl fmt::Display for PathSegment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if f.alternate() {
+            match self {
+                PathSegment::Key(key) => write!(f, ".{}", key),
+                PathSegment::Number(index) => write!(f, "[{}]", index),
+            }
+        } else {
+            match self {
+                PathSegment::Key(key) => write!(f, "{}", key),
+                PathSegment::Number(index) => write!(f, "{}", index),
+            }
+        }
+    }
+}
+
+impl From<&'static str> for PathSegment {
+    fn from(value: &'static str) -> Self {
+        PathSegment::Key(Cow::Borrowed(value))
+    }
+}
+
+#[derive(Debug, Clone, thiserror::Error)]
 #[error("{path}: {message}")]
 pub struct ValidationError {
-    pub path: String,
+    pub path: Path,
     pub message: String,
 }
 
 impl ValidationError {
-    pub fn new(path: impl Into<String>, message: impl Into<String>) -> Self {
+    pub fn new(message: impl Into<String>) -> Self {
         Self {
-            path: path.into(),
+            path: Path::default(),
             message: message.into(),
         }
     }
 
-    pub fn missing_required_field(path: impl Into<String>) -> Self {
-        let path = path.into();
-        let field = path.rsplit('.').next().unwrap_or(&path).to_string();
-        Self::new(path, format!("missing required field `{}`", field))
+    pub fn missing_required_field(field_name: impl Into<PathSegment>) -> Self {
+        let field_name = field_name.into();
+        Self {
+            message: format!("missing required field '{field_name}'"),
+            path: Path {
+                segments: vec![field_name].into(),
+            },
+        }
+    }
+
+    pub fn at(mut self, segment: impl Into<PathSegment>) -> Self {
+        self.path.push_front(segment);
+        self
     }
 }
 

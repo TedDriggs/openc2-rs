@@ -117,16 +117,12 @@ impl<V> Check for Message<V> {
                     && rsp.requires_request_id()
                     && self.headers.request_id.is_none()
                 {
-                    acc.push(ValidationError::missing_required_field(
-                        "headers.request_id",
-                    ));
+                    acc.push(ValidationError::missing_required_field("request_id").at("headers"));
                 }
             }
             Content::Response(_) => {
                 if self.status_code.is_none() {
-                    acc.push(ValidationError::missing_required_field(
-                        "headers.status_code",
-                    ));
+                    acc.push(ValidationError::missing_required_field("status_code").at("headers"));
                 }
             }
             Content::Notification(_) => {}

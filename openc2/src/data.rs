@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 
 use indexmap::{IndexMap, IndexSet};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_with::skip_serializing_none;
 use url::Url;
 
@@ -10,10 +10,12 @@ use crate::{Action, TargetType};
 mod ipnet;
 mod nsid;
 pub mod primitive;
+mod value;
 mod version;
 
 pub use ipnet::{IpV4Net, IpV6Net};
 pub use nsid::Nsid;
+pub use value::Value;
 pub use version::Version;
 
 pub type ActionTargets = IndexMap<Action, IndexSet<TargetType>>;
@@ -49,24 +51,9 @@ impl<V> Extensions<V> {
     }
 }
 
-#[cfg(feature = "json")]
-impl Extensions<serde_json::Value> {
-    pub fn get<T: serde::de::DeserializeOwned>(
-        &self,
-        key: &impl Borrow<str>,
-    ) -> Option<Result<T, serde_json::Error>> {
-        self.get_raw(key).map(|v| serde_json::from_value(v.clone()))
-    }
-}
-
-#[cfg(feature = "cbor")]
-impl Extensions<serde_cbor::Value> {
-    pub fn get<T: serde::de::DeserializeOwned>(
-        &self,
-        key: &impl Borrow<str>,
-    ) -> Option<Result<T, serde_cbor::Error>> {
-        self.get_raw(key)
-            .map(|v| serde_cbor::value::from_value(v.clone()))
+impl<V: Value + Clone> Extensions<V> {
+    pub fn get<T: DeserializeOwned>(&self, key: &impl Borrow<str>) -> Option<Result<T, V::Error>> {
+        self.get_raw(key).map(|v| v.clone().from_value())
     }
 }
 

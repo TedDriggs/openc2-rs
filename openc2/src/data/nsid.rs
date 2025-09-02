@@ -25,10 +25,7 @@ impl TryFrom<String> for Nsid {
     type Error = ValidationError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
         if value.len() > 16 {
-            return Err(ValidationError::new(
-                "nsid",
-                "NSID must be 16 characters or fewer",
-            ));
+            return Err(ValidationError::new("NSID must be 16 characters or fewer"));
         }
         Ok(Self(Cow::Owned(value)))
     }
@@ -38,10 +35,7 @@ impl TryFrom<&'static str> for Nsid {
     type Error = ValidationError;
     fn try_from(value: &'static str) -> Result<Self, Self::Error> {
         if value.len() > 16 {
-            return Err(ValidationError::new(
-                "nsid",
-                "NSID must be 16 characters or fewer",
-            ));
+            return Err(ValidationError::new("NSID must be 16 characters or fewer"));
         }
         Ok(Self(Cow::Borrowed(value)))
     }
@@ -51,10 +45,7 @@ impl FromStr for Nsid {
     type Err = ValidationError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() > 16 {
-            return Err(ValidationError::new(
-                "nsid",
-                "NSID must be 16 characters or fewer",
-            ));
+            return Err(ValidationError::new("NSID must be 16 characters or fewer"));
         }
         Ok(Self(Cow::Owned(s.to_string())))
     }

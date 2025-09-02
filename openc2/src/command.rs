@@ -1,7 +1,4 @@
-use crate::{
-    Check, CommandId, DateTime, Duration, Error, Extensions, Nsid, ResponseType, Target,
-    error::ValidationError,
-};
+use crate::{Check, CommandId, DateTime, Duration, Error, Extensions, Nsid, ResponseType, Target};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -173,10 +170,12 @@ impl<V> Check for Args<V> {
     fn check(&self) -> Result<(), Error> {
         let mut acc = Error::accumulator();
         if self.start_time.is_some() && self.stop_time.is_some() && self.duration.is_some() {
-            acc.push(ValidationError::new(
-                "duration",
-                "Only two of start_time, stop_time, and duration may be specified at once",
-            ));
+            acc.push(
+                Error::validation(
+                    "Only two of start_time, stop_time, and duration may be specified at once",
+                )
+                .at("duration"),
+            );
         }
 
         acc.finish()

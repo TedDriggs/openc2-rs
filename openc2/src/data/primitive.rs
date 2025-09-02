@@ -1,6 +1,8 @@
-#[cfg(feature = "json")]
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
+use serde::{
+    Deserialize, Deserializer, Serialize, Serializer, de::DeserializeOwned, ser::SerializeMap,
+};
+
+use crate::Value;
 
 /// A map containing a single key-value pair.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -15,26 +17,18 @@ impl<K, V> Choice<K, V> {
     }
 }
 
-#[cfg(feature = "json")]
-impl<K> Choice<K, serde_json::Value> {
-    pub fn get<V: DeserializeOwned>(&self) -> serde_json::Result<V> {
-        serde_json::from_value(self.value.clone())
+impl<K, V: Value> Choice<K, V> {
+    pub fn new_value(key: K, value: impl Serialize) -> Result<Self, V::Error> {
+        Ok(Self {
+            key,
+            value: V::to_value(&value)?,
+        })
     }
 }
 
-#[cfg(feature = "json")]
-impl<K> Choice<K, Choice<String, serde_json::Value>> {
-    pub fn get<V: DeserializeOwned>(&self) -> serde_json::Result<V> {
-        serde_json::from_value(serde_json::json!({
-            self.value.key.clone(): self.value.value
-        }))
-    }
-}
-
-#[cfg(feature = "cbor")]
-impl<K> Choice<K, serde_cbor::Value> {
-    pub fn get<V: DeserializeOwned>(&self) -> serde_cbor::Result<V> {
-        serde_cbor::value::from_value(self.value.clone())
+impl<K, V: Value + Clone> Choice<K, V> {
+    pub fn get<T: DeserializeOwned>(&self) -> Result<T, V::Error> {
+        self.value.clone().from_value()
     }
 }
 
