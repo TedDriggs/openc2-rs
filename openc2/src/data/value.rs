@@ -30,7 +30,7 @@ impl Value for serde_cbor::Value {
     type Error = serde_cbor::Error;
 
     fn from_typed<V: Serialize>(value: &V) -> Result<Self, Self::Error> {
-        serde_cbor::to_value(value)
+        serde_cbor::value::to_value(value)
     }
 
     fn to_typed<T: DeserializeOwned>(self) -> Result<T, Self::Error> {
