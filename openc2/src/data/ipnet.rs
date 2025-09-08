@@ -13,21 +13,23 @@ use crate::error::ValidationError;
 )]
 pub struct IpV4Net {
     address: Ipv4Addr,
+    /// The prefix length - this should never be 32.
     prefix_len: Option<u8>,
 }
 
 impl IpV4Net {
     pub fn new(address: Ipv4Addr, prefix_len: Option<u8>) -> Result<Self, ValidationError> {
-        if let Some(pf) = prefix_len
-            && pf > 32
-        {
-            return Err(ValidationError::new(
-                "Prefix length must be between 0 and 32",
-            ));
-        }
         Ok(Self {
             address,
-            prefix_len,
+            prefix_len: match prefix_len {
+                Some(pf) if pf > 32 => {
+                    return Err(ValidationError::new(
+                        "Prefix length must be between 0 and 32",
+                    ));
+                }
+                Some(32) | None => None,
+                Some(other) => Some(other),
+            },
         })
     }
 }
@@ -83,21 +85,23 @@ impl From<Ipv4Addr> for IpV4Net {
 )]
 pub struct IpV6Net {
     address: Ipv6Addr,
+    /// The prefix length - this should never be 128.
     prefix_len: Option<u8>,
 }
 
 impl IpV6Net {
     pub fn new(address: Ipv6Addr, prefix_len: Option<u8>) -> Result<Self, ValidationError> {
-        if let Some(prefix_len) = prefix_len
-            && prefix_len > 128
-        {
-            return Err(ValidationError::new(
-                "Prefix length must be between 0 and 128",
-            ));
-        }
         Ok(Self {
             address,
-            prefix_len,
+            prefix_len: match prefix_len {
+                Some(pf) if pf > 128 => {
+                    return Err(ValidationError::new(
+                        "Prefix length must be between 0 and 128",
+                    ));
+                }
+                Some(128) | None => None,
+                Some(other) => Some(other),
+            },
         })
     }
 }
