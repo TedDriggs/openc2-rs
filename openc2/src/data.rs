@@ -13,7 +13,7 @@ pub mod primitive;
 mod value;
 mod version;
 
-pub use ipnet::{IpV4Net, IpV6Net};
+pub use ipnet::{Ipv4Net, Ipv6Net};
 pub use nsid::Nsid;
 pub use value::Value;
 pub use version::Version;

@@ -7,7 +7,7 @@ use serde_with::{DeserializeFromStr, SerializeDisplay, skip_serializing_none};
 use std::{borrow::Cow, fmt, str::FromStr};
 
 use crate::{
-    CommandId, Feature, Hashes, IpV4Net, IpV6Net, Nsid, Payload, error::ValidationError,
+    CommandId, Feature, Hashes, Ipv4Net, Ipv6Net, Nsid, Payload, error::ValidationError,
     primitive::Choice,
 };
 
@@ -20,8 +20,8 @@ pub enum Target<V> {
     Device(Device),
     Features(IndexSet<Feature>),
     File(File),
-    Ipv4Net(IpV4Net),
-    Ipv6Net(IpV6Net),
+    Ipv4Net(Ipv4Net),
+    Ipv6Net(Ipv6Net),
     #[serde(untagged)]
     Extension(Choice<Nsid, Choice<String, V>>),
 }

@@ -11,13 +11,13 @@ use crate::error::ValidationError;
 #[derive(
     Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, SerializeDisplay, DeserializeFromStr,
 )]
-pub struct IpV4Net {
+pub struct Ipv4Net {
     address: Ipv4Addr,
     /// The prefix length - this should never be 32.
     prefix_len: Option<u8>,
 }
 
-impl IpV4Net {
+impl Ipv4Net {
     pub fn new(address: Ipv4Addr, prefix_len: Option<u8>) -> Result<Self, ValidationError> {
         Ok(Self {
             address,
@@ -34,13 +34,13 @@ impl IpV4Net {
     }
 }
 
-impl fmt::Debug for IpV4Net {
+impl fmt::Debug for Ipv4Net {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{self}")
     }
 }
 
-impl fmt::Display for IpV4Net {
+impl fmt::Display for Ipv4Net {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(prefix_len) = self.prefix_len {
             write!(f, "{}/{prefix_len}", self.address)
@@ -50,7 +50,7 @@ impl fmt::Display for IpV4Net {
     }
 }
 
-impl FromStr for IpV4Net {
+impl FromStr for Ipv4Net {
     type Err = ValidationError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (addr, prefix) = s
@@ -71,7 +71,7 @@ impl FromStr for IpV4Net {
     }
 }
 
-impl From<Ipv4Addr> for IpV4Net {
+impl From<Ipv4Addr> for Ipv4Net {
     fn from(address: Ipv4Addr) -> Self {
         Self {
             address,
@@ -83,13 +83,13 @@ impl From<Ipv4Addr> for IpV4Net {
 #[derive(
     Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, SerializeDisplay, DeserializeFromStr,
 )]
-pub struct IpV6Net {
+pub struct Ipv6Net {
     address: Ipv6Addr,
     /// The prefix length - this should never be 128.
     prefix_len: Option<u8>,
 }
 
-impl IpV6Net {
+impl Ipv6Net {
     pub fn new(address: Ipv6Addr, prefix_len: Option<u8>) -> Result<Self, ValidationError> {
         Ok(Self {
             address,
@@ -106,13 +106,13 @@ impl IpV6Net {
     }
 }
 
-impl fmt::Debug for IpV6Net {
+impl fmt::Debug for Ipv6Net {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{self}")
     }
 }
 
-impl fmt::Display for IpV6Net {
+impl fmt::Display for Ipv6Net {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(prefix_len) = self.prefix_len {
             write!(f, "{}/{}", self.address, prefix_len)
@@ -122,7 +122,7 @@ impl fmt::Display for IpV6Net {
     }
 }
 
-impl FromStr for IpV6Net {
+impl FromStr for Ipv6Net {
     type Err = ValidationError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (addr, prefix) = s
@@ -143,7 +143,7 @@ impl FromStr for IpV6Net {
     }
 }
 
-impl From<Ipv6Addr> for IpV6Net {
+impl From<Ipv6Addr> for Ipv6Net {
     fn from(address: Ipv6Addr) -> Self {
         Self {
             address,

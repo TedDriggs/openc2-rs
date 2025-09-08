@@ -1,4 +1,4 @@
-use openc2::{DomainName, IpV4Net, IpV6Net, target::Device};
+use openc2::{DomainName, Ipv4Net, Ipv6Net, target::Device};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -71,9 +71,9 @@ pub enum PeriodicScan {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PermittedAddresses {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub ipv4_net: Vec<IpV4Net>,
+    pub ipv4_net: Vec<Ipv4Net>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub ipv6_net: Vec<IpV6Net>,
+    pub ipv6_net: Vec<Ipv6Net>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub domain_names: Vec<DomainName>,
 }
