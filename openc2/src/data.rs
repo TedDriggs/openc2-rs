@@ -53,7 +53,7 @@ impl<V> Extensions<V> {
 
 impl<V: Value + Clone> Extensions<V> {
     pub fn get<T: DeserializeOwned>(&self, key: &impl Borrow<str>) -> Option<Result<T, V::Error>> {
-        self.get_raw(key).map(|v| v.clone().from_value())
+        self.get_raw(key).map(|v| v.clone().to_typed())
     }
 }
 

@@ -6,21 +6,21 @@ pub trait Value: Sized {
     type Error;
 
     /// Serialize a value to the value type.
-    fn to_value<V: Serialize>(value: &V) -> Result<Self, Self::Error>;
+    fn from_typed<V: Serialize>(value: &V) -> Result<Self, Self::Error>;
 
     /// Deserialize a value from the value type.
-    fn from_value<T: DeserializeOwned>(self) -> Result<T, Self::Error>;
+    fn to_typed<T: DeserializeOwned>(self) -> Result<T, Self::Error>;
 }
 
 #[cfg(feature = "json")]
 impl Value for serde_json::Value {
     type Error = serde_json::Error;
 
-    fn to_value<V: Serialize>(value: &V) -> Result<Self, Self::Error> {
+    fn from_typed<V: Serialize>(value: &V) -> Result<Self, Self::Error> {
         serde_json::to_value(value)
     }
 
-    fn from_value<T: DeserializeOwned>(self) -> Result<T, Self::Error> {
+    fn to_typed<T: DeserializeOwned>(self) -> Result<T, Self::Error> {
         serde_json::from_value(self)
     }
 }
@@ -29,11 +29,11 @@ impl Value for serde_json::Value {
 impl Value for serde_cbor::Value {
     type Error = serde_cbor::Error;
 
-    fn to_value<V: Serialize>(value: &V) -> Result<Self, Self::Error> {
+    fn from_typed<V: Serialize>(value: &V) -> Result<Self, Self::Error> {
         serde_cbor::to_value(value)
     }
 
-    fn from_value<T: DeserializeOwned>(self) -> Result<T, Self::Error> {
+    fn to_typed<T: DeserializeOwned>(self) -> Result<T, Self::Error> {
         serde_cbor::value::from_value(self)
     }
 }

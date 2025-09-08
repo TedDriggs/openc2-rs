@@ -21,14 +21,14 @@ impl<K, V: Value> Choice<K, V> {
     pub fn new_value(key: K, value: impl Serialize) -> Result<Self, V::Error> {
         Ok(Self {
             key,
-            value: V::to_value(&value)?,
+            value: V::from_typed(&value)?,
         })
     }
 }
 
 impl<K, V: Value + Clone> Choice<K, V> {
     pub fn get<T: DeserializeOwned>(&self) -> Result<T, V::Error> {
-        self.value.clone().from_value()
+        self.value.clone().to_typed()
     }
 }
 
