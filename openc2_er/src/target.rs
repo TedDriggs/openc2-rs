@@ -63,18 +63,25 @@ pub enum TargetType {
     RegistryEntry,
 }
 
+impl TargetType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            TargetType::Account => "account",
+            TargetType::Service => "service",
+            TargetType::RegistryEntry => "registry_entry",
+        }
+    }
+}
+
 impl Profile for TargetType {
     fn ns() -> &'static Nsid {
         NS
     }
 }
 
-impl From<TargetType> for ProfileTargetType {
+impl From<TargetType> for ProfileTargetType<'static> {
     fn from(value: TargetType) -> Self {
-        ProfileTargetType {
-            profile: NS.clone(),
-            name: value.to_string(),
-        }
+        ProfileTargetType::new(NS, value.as_str())
     }
 }
 

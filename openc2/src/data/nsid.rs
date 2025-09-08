@@ -13,12 +13,9 @@ use crate::error::ValidationError;
 pub struct Nsid(Cow<'static, str>);
 
 impl Nsid {
-    pub const fn new_static(text: &'static str) -> Self {
-        if text.len() > 16 {
-            panic!("NSID must be 16 characters or fewer");
-        }
-        Self(Cow::Borrowed(text))
-    }
+    pub const SLPF: Self = Nsid(Cow::Borrowed("slpf"));
+    pub const SFPF: Self = Nsid(Cow::Borrowed("sfpf"));
+    pub const ER: Self = Nsid(Cow::Borrowed("er"));
 }
 
 impl TryFrom<String> for Nsid {
@@ -47,7 +44,14 @@ impl FromStr for Nsid {
         if s.len() > 16 {
             return Err(ValidationError::new("NSID must be 16 characters or fewer"));
         }
-        Ok(Self(Cow::Owned(s.to_string())))
+
+        // For known profiles, reuse the const to avoid heap allocations
+        match s {
+            "slpf" => Ok(Self::SLPF),
+            "sfpf" => Ok(Self::SFPF),
+            "er" => Ok(Self::ER),
+            _ => Ok(Self(Cow::Owned(s.to_string()))),
+        }
     }
 }
 
@@ -60,5 +64,17 @@ impl fmt::Display for Nsid {
 impl Borrow<str> for Nsid {
     fn borrow(&self) -> &str {
         &self.0
+    }
+}
+
+impl From<Nsid> for Cow<'_, Nsid> {
+    fn from(value: Nsid) -> Self {
+        Cow::Owned(value)
+    }
+}
+
+impl<'a> From<&'a Nsid> for Cow<'a, Nsid> {
+    fn from(value: &'a Nsid) -> Self {
+        Cow::Borrowed(value)
     }
 }

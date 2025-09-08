@@ -6,7 +6,6 @@
 //! # Crate Purpose
 //! This crate helps actuator implementers and other cybersecurity vendors interact with OpenC2 messages.
 
-mod check;
 mod command;
 mod data;
 mod error;
@@ -15,8 +14,7 @@ mod notification;
 mod profile;
 mod response;
 pub mod target;
-
-pub use check::Check;
+mod traits;
 
 pub use error::Error;
 
@@ -39,6 +37,8 @@ pub use target::{Target, TargetType};
 
 #[doc(inline)]
 pub use response::{Response, Results, Status};
+
+pub use traits::{Check, IsEmpty};
 
 /// Type aliases for JSON-based OpenC2 messages.
 #[cfg(feature = "json")]

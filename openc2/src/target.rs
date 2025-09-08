@@ -4,7 +4,7 @@ use from_variants::FromVariants;
 use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay, skip_serializing_none};
-use std::{fmt, str::FromStr};
+use std::{borrow::Cow, fmt, str::FromStr};
 
 use crate::{
     CommandId, Feature, Hashes, IpV4Net, IpV6Net, Nsid, Payload, error::ValidationError,
@@ -17,26 +17,24 @@ use crate::{
 pub enum Target<V> {
     Artifact(Artifact),
     Command(CommandId),
-    File(File),
-    #[serde(rename = "ipv4_net")]
-    IpV4Net(IpV4Net),
-    #[serde(rename = "ipv6_net")]
-    IpV6Net(IpV6Net),
     Device(Device),
     Features(IndexSet<Feature>),
+    File(File),
+    Ipv4Net(IpV4Net),
+    Ipv6Net(IpV6Net),
     #[serde(untagged)]
     Extension(Choice<Nsid, Choice<String, V>>),
 }
 
 impl<V> Target<V> {
-    pub fn kind(&self) -> TargetType {
+    pub fn kind<'a>(&'a self) -> TargetType<'a> {
         self.into()
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
-pub enum TargetType {
+pub enum TargetType<'a> {
     Artifact,
     Command,
     File,
@@ -47,56 +45,64 @@ pub enum TargetType {
     Device,
     Features,
     #[serde(untagged)]
-    Extension(ProfileTargetType),
+    Extension(ProfileTargetType<'a>),
 }
 
-impl<V> From<&Target<V>> for TargetType {
-    fn from(value: &Target<V>) -> Self {
+impl<'a, V> From<&'a Target<V>> for TargetType<'a> {
+    fn from(value: &'a Target<V>) -> Self {
         match value {
             Target::Artifact(_) => TargetType::Artifact,
             Target::Command(_) => TargetType::Command,
             Target::File(_) => TargetType::File,
-            Target::IpV4Net(_) => TargetType::IpV4Net,
-            Target::IpV6Net(_) => TargetType::IpV6Net,
+            Target::Ipv4Net(_) => TargetType::IpV4Net,
+            Target::Ipv6Net(_) => TargetType::IpV6Net,
             Target::Device(_) => TargetType::Device,
             Target::Features(_) => TargetType::Features,
-            Target::Extension(ext) => TargetType::Extension(ProfileTargetType {
-                profile: ext.key.clone(),
-                name: ext.value.key.clone(),
-            }),
+            Target::Extension(ext) => {
+                TargetType::Extension(ProfileTargetType::new(&ext.key, &ext.value.key))
+            }
         }
     }
 }
 
 /// A target type defined by a profile.
 #[derive(Clone, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ProfileTargetType {
-    pub profile: Nsid,
-    pub name: String,
+pub struct ProfileTargetType<'a> {
+    pub profile: Cow<'a, Nsid>,
+    pub name: Cow<'a, str>,
 }
 
-impl fmt::Debug for ProfileTargetType {
+impl<'a> ProfileTargetType<'a> {
+    pub fn new(profile: impl Into<Cow<'a, Nsid>>, name: impl Into<Cow<'a, str>>) -> Self {
+        Self {
+            profile: profile.into(),
+            name: name.into(),
+        }
+    }
+}
+
+impl fmt::Debug for ProfileTargetType<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl fmt::Display for ProfileTargetType {
+impl fmt::Display for ProfileTargetType<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}/{}", self.profile, self.name)
     }
 }
 
-impl FromStr for ProfileTargetType {
+impl FromStr for ProfileTargetType<'_> {
     type Err = ValidationError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (profile, name) = s.split_once('/').ok_or_else(|| {
             ValidationError::new("Profile target must be in the format 'profile/name'")
         })?;
-        Ok(Self {
-            profile: Nsid::try_from(profile.to_string()).map_err(|e| e.at("profile"))?,
-            name: name.to_string(),
-        })
+        Ok(Self::new(
+            Nsid::try_from(profile.to_string()).map_err(|e| e.at("profile"))?,
+            name.to_string(),
+        ))
     }
 }
 
@@ -150,7 +156,7 @@ mod tests {
         ))
         .unwrap();
 
-        assert_eq!(example, Target::IpV4Net("1.2.3.4/32".parse().unwrap()));
+        assert_eq!(example, Target::Ipv4Net("1.2.3.4/32".parse().unwrap()));
     }
 
     #[test]

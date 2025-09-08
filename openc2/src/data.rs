@@ -18,7 +18,7 @@ pub use nsid::Nsid;
 pub use value::Value;
 pub use version::Version;
 
-pub type ActionTargets = IndexMap<Action, IndexSet<TargetType>>;
+pub type ActionTargets = IndexMap<Action, IndexSet<TargetType<'static>>>;
 
 pub type CommandId = String;
 
