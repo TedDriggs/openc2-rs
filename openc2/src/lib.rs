@@ -36,7 +36,7 @@ pub use notification::Notification;
 pub use target::{Target, TargetType};
 
 #[doc(inline)]
-pub use response::{Response, Results, Status};
+pub use response::{Response, Results, StatusCode};
 
 pub use traits::{Check, IsEmpty};
 

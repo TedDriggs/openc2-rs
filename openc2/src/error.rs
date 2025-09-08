@@ -7,6 +7,8 @@ use std::{
 
 use from_variants::FromVariants;
 
+use crate::{Response, StatusCode};
+
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("{kind}")]
 pub struct Error {
@@ -249,8 +251,8 @@ impl From<&'static str> for PathSegment {
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("{path}: {message}")]
 pub struct ValidationError {
-    pub path: Path,
-    pub message: String,
+    path: Path,
+    message: String,
 }
 
 impl ValidationError {
@@ -277,10 +279,35 @@ impl ValidationError {
     }
 }
 
+/// Error indicating that a consumer does not implement a requested feature.
+#[derive(Debug, Clone, thiserror::Error)]
+pub struct NotImplementedError {
+    message: String,
+    path: Option<Path>,
+}
+
+impl fmt::Display for NotImplementedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(path) = &self.path {
+            write!(f, "{} (at {path})", self.message)
+        } else {
+            write!(f, "{}", self.message)
+        }
+    }
+}
+
 impl From<ValidationError> for Error {
     fn from(err: ValidationError) -> Self {
         Self {
             kind: ErrorKind::Validation(err),
+        }
+    }
+}
+
+impl From<NotImplementedError> for Error {
+    fn from(err: NotImplementedError) -> Self {
+        Self {
+            kind: ErrorKind::NotImplemented(err),
         }
     }
 }
@@ -306,8 +333,10 @@ impl From<serde_cbor::Error> for Error {
 #[non_exhaustive]
 #[derive(Debug, Clone, thiserror::Error)]
 enum ErrorKind {
-    #[error("validation error: {0}")]
+    #[error("{0}")]
     Validation(ValidationError),
+    #[error("{0}")]
+    NotImplemented(NotImplementedError),
     #[error("{0}")]
     Custom(String),
     #[cfg(feature = "json")]
@@ -318,4 +347,35 @@ enum ErrorKind {
     Cbor(String),
     #[error("multiple errors")]
     Multiple(Vec<Error>),
+}
+
+impl<V> From<Error> for Response<V> {
+    fn from(value: Error) -> Self {
+        match value.kind {
+            ErrorKind::Validation(e) => e.into(),
+            ErrorKind::NotImplemented(e) => e.into(),
+            ErrorKind::Custom(e) => Self::new(StatusCode::InternalError).with_status_text(e),
+            #[cfg(feature = "json")]
+            ErrorKind::Json(e) => Self::new(StatusCode::InternalError).with_status_text(e),
+            #[cfg(feature = "cbor")]
+            ErrorKind::Cbor(e) => Self::new(StatusCode::InternalError).with_status_text(e),
+            ErrorKind::Multiple(errors) => errors
+                .into_iter()
+                .next()
+                .expect("multi-error has errors")
+                .into(),
+        }
+    }
+}
+
+impl<V> From<ValidationError> for Response<V> {
+    fn from(value: ValidationError) -> Self {
+        Self::new(StatusCode::BadRequest).with_status_text(value.to_string())
+    }
+}
+
+impl<V> From<NotImplementedError> for Response<V> {
+    fn from(value: NotImplementedError) -> Self {
+        Self::new(StatusCode::NotImplemented).with_status_text(value.to_string())
+    }
 }

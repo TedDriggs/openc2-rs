@@ -15,14 +15,46 @@ use crate::{ActionTargets, Extensions, Nsid, Version};
 #[non_exhaustive]
 pub struct Response<V> {
     /// The status of the response to the command.
-    pub status: Status,
+    pub status: StatusCode,
     /// A description providing additional information about the status of the response.
     pub status_text: Option<String>,
     #[serde(default)]
     pub results: Option<Results<V>>,
 }
 
-pub type Status = u16;
+impl<V> Response<V> {
+    /// Create a new Response with the given status code.
+    pub fn new(status: StatusCode) -> Self {
+        Self {
+            status,
+            status_text: None,
+            results: None,
+        }
+    }
+
+    pub fn with_status_text(mut self, text: impl Into<String>) -> Self {
+        self.status_text = Some(text.into());
+        self
+    }
+
+    pub fn with_results(mut self, results: Results<V>) -> Self {
+        self.results = Some(results);
+        self
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum StatusCode {
+    Processing = 102,
+    Ok = 200,
+    BadRequest = 400,
+    Unauthorized = 401,
+    Forbidden = 403,
+    NotFound = 404,
+    InternalError = 500,
+    NotImplemented = 501,
+    ServiceUnavailable = 503,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]

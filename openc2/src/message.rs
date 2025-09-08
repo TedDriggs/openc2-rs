@@ -1,12 +1,12 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashMap};
 
 use from_variants::FromVariants;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_with::skip_serializing_none;
 
 use crate::{
-    Check, Command, CommandId, DateTime, Error, Extensions, Notification, Response,
-    error::ValidationError, response::Status,
+    Check, Command, CommandId, DateTime, Error, IsEmpty, Notification, Response,
+    error::ValidationError, response::StatusCode,
 };
 
 #[skip_serializing_none]
@@ -18,8 +18,8 @@ pub struct Headers<V> {
     pub from: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub to: Vec<String>,
-    #[serde(flatten, default, skip_serializing_if = "Extensions::is_empty")]
-    pub extensions: Extensions<V>,
+    #[serde(flatten, default, skip_serializing_if = "IsEmpty::is_empty")]
+    pub additional: HashMap<String, V>,
 }
 
 impl<V> Headers<V> {
@@ -28,7 +28,7 @@ impl<V> Headers<V> {
             && self.created.is_none()
             && self.from.is_none()
             && self.to.is_empty()
-            && self.extensions.is_empty()
+            && self.additional.is_empty()
     }
 }
 
@@ -39,7 +39,7 @@ impl<V> Default for Headers<V> {
             created: None,
             from: None,
             to: Default::default(),
-            extensions: Default::default(),
+            additional: Default::default(),
         }
     }
 }
@@ -61,7 +61,7 @@ pub struct Message<V> {
     pub headers: Headers<V>,
     pub content_type: Cow<'static, str>,
     pub body: Body<V>,
-    pub status_code: Option<Status>,
+    pub status_code: Option<StatusCode>,
 }
 
 impl<V> Message<V> {
