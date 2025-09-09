@@ -10,7 +10,7 @@ use crate::{
 };
 
 #[skip_serializing_none]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Headers {
     pub request_id: Option<CommandId>,
@@ -26,17 +26,6 @@ impl IsEmpty for Headers {
             && self.created.is_none()
             && self.from.is_none()
             && self.to.is_empty()
-    }
-}
-
-impl Default for Headers {
-    fn default() -> Self {
-        Self {
-            request_id: None,
-            created: None,
-            from: None,
-            to: Default::default(),
-        }
     }
 }
 
