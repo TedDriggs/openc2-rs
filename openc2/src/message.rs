@@ -54,17 +54,20 @@ pub enum Body<V> {
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
-#[serde(bound = "V: Serialize + DeserializeOwned + Default")]
-pub struct Message<V> {
-    #[serde(default, skip_serializing_if = "Headers::is_empty")]
-    pub headers: Headers<V>,
+pub struct Message<H, B> {
+    #[serde(default, skip_serializing_if = "IsEmpty::is_empty")]
+    #[serde(bound(
+        serialize = "H: Serialize + IsEmpty",
+        deserialize = "H: Deserialize<'de> + Default"
+    ))]
+    pub headers: H,
     pub content_type: Cow<'static, str>,
-    pub body: Body<V>,
+    #[serde(bound(serialize = "B: Serialize", deserialize = "B: Deserialize<'de>"))]
+    pub body: B,
     pub status_code: Option<StatusCode>,
 }
 
-impl<V> Message<V> {
+impl<V> Message<Headers<V>, Body<V>> {
     /// The value for [`Message::content_type`] for v1 and v2 of the OpenC2 specification.
     pub const CONTENT_TYPE: &str = "application/openc2";
 
@@ -81,7 +84,7 @@ impl<V> Message<V> {
     }
 }
 
-impl<V> From<Body<V>> for Message<V> {
+impl<V> From<Body<V>> for Message<Headers<V>, Body<V>> {
     fn from(value: Body<V>) -> Self {
         // Auto-promote status code from response body
         let status_code = if let Body::OpenC2(Content::Response(r)) = &value {
@@ -99,13 +102,13 @@ impl<V> From<Body<V>> for Message<V> {
     }
 }
 
-impl<V> From<Content<V>> for Message<V> {
+impl<V> From<Content<V>> for Message<Headers<V>, Body<V>> {
     fn from(value: Content<V>) -> Self {
         Body::from(value).into()
     }
 }
 
-impl<V> Check for Message<V> {
+impl<V> Check for Message<Headers<V>, Body<V>> {
     fn check(&self) -> Result<(), Error> {
         let mut acc = Error::accumulator();
 
@@ -147,12 +150,11 @@ pub enum Content<V> {
 mod tests {
     use crate::{Body, Command, Content, Target};
 
-    use super::Message;
     use serde_json::{from_value, json};
 
     #[test]
     fn deserialize() {
-        let example: Message<serde_json::Value> = from_value(json!(
+        let example: crate::json::Message = from_value(json!(
             {
                 "headers": {
                     "request_id": "123",
