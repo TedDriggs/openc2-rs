@@ -67,6 +67,18 @@ impl Borrow<str> for Nsid {
     }
 }
 
+impl PartialEq<Cow<'_, Nsid>> for Nsid {
+    fn eq(&self, other: &Cow<'_, Nsid>) -> bool {
+        self.0 == other.as_ref().0
+    }
+}
+
+impl PartialEq<Nsid> for Cow<'_, Nsid> {
+    fn eq(&self, other: &Nsid) -> bool {
+        self.as_ref().0 == other.0
+    }
+}
+
 impl From<Nsid> for Cow<'_, Nsid> {
     fn from(value: Nsid) -> Self {
         Cow::Owned(value)
