@@ -1,4 +1,7 @@
-use crate::{Check, CommandId, DateTime, Duration, Error, Extensions, Nsid, ResponseType, Target};
+use crate::{
+    Body, Check, CommandId, Content, DateTime, Duration, Error, Extensions, Nsid, ResponseType,
+    Target,
+};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -27,6 +30,40 @@ impl<V> Command<V> {
             args: Default::default(),
             profile: None,
             command_id: None,
+        }
+    }
+}
+
+mod command_as_content {
+    use serde::Serialize;
+
+    use crate::AsContent;
+
+    use super::Command;
+
+    #[derive(Debug, Clone, Serialize)]
+    #[serde(rename_all = "snake_case")]
+    pub enum CommandAsContent<'a, V> {
+        Request(&'a Command<V>),
+    }
+
+    impl<'a, V: Serialize> AsContent for &'a Command<V> {
+        type Output = CommandAsContent<'a, V>;
+
+        fn as_content(&self) -> Self::Output {
+            CommandAsContent::Request(self)
+        }
+    }
+}
+
+impl<V> TryFrom<Body<Content<V>>> for Command<V> {
+    type Error = Error;
+
+    fn try_from(value: Body<Content<V>>) -> Result<Self, Self::Error> {
+        let Body::OpenC2(value) = value;
+        match value {
+            Content::Request(req) => Ok(req),
+            _ => Err(Error::validation("body is not a command")),
         }
     }
 }

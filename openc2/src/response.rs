@@ -2,7 +2,7 @@ use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-use crate::{ActionTargets, Extensions, Nsid, Version};
+use crate::{ActionTargets, Body, Content, Error, Extensions, Nsid, Version};
 
 /// A message sent from an entity as the result of a command. Response
 /// messages provide acknowledgement, status, results from a query or other information as requested from
@@ -40,6 +40,40 @@ impl<V> Response<V> {
     pub fn with_results(mut self, results: Results<V>) -> Self {
         self.results = Some(results);
         self
+    }
+}
+
+mod response_as_content {
+    use serde::Serialize;
+
+    use crate::AsContent;
+
+    use super::Response;
+
+    #[derive(Debug, Clone, Serialize)]
+    #[serde(rename_all = "snake_case")]
+    pub enum ResponseAsContent<'a, V> {
+        Response(&'a Response<V>),
+    }
+
+    impl<'a, V: Serialize> AsContent for &'a Response<V> {
+        type Output = ResponseAsContent<'a, V>;
+
+        fn as_content(&self) -> Self::Output {
+            ResponseAsContent::Response(self)
+        }
+    }
+}
+
+impl<V> TryFrom<Body<Content<V>>> for Response<V> {
+    type Error = Error;
+
+    fn try_from(value: Body<Content<V>>) -> Result<Self, Self::Error> {
+        let Body::OpenC2(value) = value;
+        match value {
+            Content::Response(resp) => Ok(resp),
+            _ => Err(Error::validation("body is not a response")),
+        }
     }
 }
 

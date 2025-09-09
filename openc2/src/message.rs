@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::HashMap};
 
 use from_variants::FromVariants;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize, Serializer, de::DeserializeOwned};
 use serde_with::skip_serializing_none;
 
 use crate::{
@@ -22,8 +22,8 @@ pub struct Headers<V> {
     pub additional: HashMap<String, V>,
 }
 
-impl<V> Headers<V> {
-    pub fn is_empty(&self) -> bool {
+impl<V> IsEmpty for Headers<V> {
+    fn is_empty(&self) -> bool {
         self.request_id.is_none()
             && self.created.is_none()
             && self.from.is_none()
@@ -46,31 +46,94 @@ impl<V> Default for Headers<V> {
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromVariants)]
 #[non_exhaustive]
-#[serde(bound = "V: Serialize + DeserializeOwned + Default")]
 pub enum Body<V> {
-    #[serde(rename = "openc2")]
-    OpenC2(Content<V>),
+    #[serde(rename = "openc2", bound(serialize = "V: Serialize"))]
+    OpenC2(V),
 }
 
+/// Trait for converting a type into a serializable body that conforms to the OpenC2 message body structure.
+/// This allows for types such as `Message<Command>` to be serialized correctly as OpenC2 bodies.
+pub trait AsBody {
+    type Output: Serialize;
+
+    /// Returns the body representation of the type. This method should borrow from the type to avoid unnecessary
+    /// allocations.
+    fn as_body(&self) -> Self::Output;
+}
+
+impl<'a, T: Serialize> AsBody for &'a Body<T> {
+    type Output = Body<&'a T>;
+
+    fn as_body(&self) -> Self::Output {
+        match self {
+            Body::OpenC2(v) => Body::OpenC2(v),
+        }
+    }
+}
+
+impl<T: AsContent> AsBody for T {
+    type Output = Body<T::Output>;
+
+    fn as_body(&self) -> Self::Output {
+        Body::OpenC2(self.as_content())
+    }
+}
+
+/// An OpenC2 message.
+///
+/// This type is generic over the headers and body. To ensure correctness for serialization and deserialization,
+/// the body uses the [`AsBody`] trait at serialization time and [`TryFrom<Body<Content<V>>>`] at deserialization time.
+///
+/// Additionally, the headers must implement [`IsEmpty`], as the standard requires they be omitted during serialization.
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message<H, B> {
-    #[serde(default, skip_serializing_if = "IsEmpty::is_empty")]
-    #[serde(bound(
-        serialize = "H: Serialize + IsEmpty",
-        deserialize = "H: Deserialize<'de> + Default"
-    ))]
+    #[serde(
+        default,
+        skip_serializing_if = "IsEmpty::is_empty",
+        bound(
+            serialize = "H: Serialize + IsEmpty",
+            deserialize = "H: Deserialize<'de> + Default"
+        )
+    )]
     pub headers: H,
     pub content_type: Cow<'static, str>,
-    #[serde(bound(serialize = "B: Serialize", deserialize = "B: Deserialize<'de>"))]
+    #[serde(
+        serialize_with = "serialize_body",
+        deserialize_with = "deserialize_body",
+        bound(
+            serialize = "for<'b> &'b B: AsBody",
+            deserialize = "B: Deserialize<'de> + TryFrom<Body<Content<serde_json::Value>>>, B::Error: std::fmt::Display"
+        )
+    )]
     pub body: B,
     pub status_code: Option<StatusCode>,
 }
 
-impl<V> Message<Headers<V>, Body<V>> {
+fn serialize_body<T, S: Serializer>(body: &T, serializer: S) -> Result<S::Ok, S::Error>
+where
+    for<'a> &'a T: AsBody,
+{
+    body.as_body().serialize(serializer)
+}
+
+fn deserialize_body<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: TryFrom<Body<Content<serde_json::Value>>>,
+    T::Error: std::fmt::Display,
+{
+    Body::<Content<serde_json::Value>>::deserialize(deserializer)?
+        .try_into()
+        .map_err(serde::de::Error::custom)
+}
+
+impl<H, B> Message<H, B> {
     /// The value for [`Message::content_type`] for v1 and v2 of the OpenC2 specification.
     pub const CONTENT_TYPE: &str = "application/openc2";
+}
 
+impl<V> Message<Headers<V>, Body<Content<V>>> {
     pub fn command_id(&self) -> Option<&CommandId> {
         let Body::OpenC2(body) = &self.body;
         match body {
@@ -84,8 +147,8 @@ impl<V> Message<Headers<V>, Body<V>> {
     }
 }
 
-impl<V> From<Body<V>> for Message<Headers<V>, Body<V>> {
-    fn from(value: Body<V>) -> Self {
+impl<V> From<Body<Content<V>>> for Message<Headers<V>, Body<Content<V>>> {
+    fn from(value: Body<Content<V>>) -> Self {
         // Auto-promote status code from response body
         let status_code = if let Body::OpenC2(Content::Response(r)) = &value {
             Some(r.status)
@@ -102,13 +165,13 @@ impl<V> From<Body<V>> for Message<Headers<V>, Body<V>> {
     }
 }
 
-impl<V> From<Content<V>> for Message<Headers<V>, Body<V>> {
+impl<V> From<Content<V>> for Message<Headers<V>, Body<Content<V>>> {
     fn from(value: Content<V>) -> Self {
         Body::from(value).into()
     }
 }
 
-impl<V> Check for Message<Headers<V>, Body<V>> {
+impl<V> Check for Message<Headers<V>, Body<Content<V>>> {
     fn check(&self) -> Result<(), Error> {
         let mut acc = Error::accumulator();
 
@@ -144,6 +207,48 @@ pub enum Content<V> {
     Request(Command<V>),
     Response(Response<V>),
     Notification(Notification<V>),
+}
+
+pub trait AsContent {
+    type Output: Serialize;
+
+    fn as_content(&self) -> Self::Output;
+}
+
+mod content_as_content {
+    use crate::{Command, Notification, Response};
+
+    use super::{AsContent, Content};
+    use serde::Serialize;
+
+    #[derive(Debug, Serialize)]
+    #[serde(rename_all = "snake_case")]
+    pub enum ContentAsContent<'a, V> {
+        Request(&'a Command<V>),
+        Response(&'a Response<V>),
+        Notification(&'a Notification<V>),
+    }
+
+    impl<'a, V: Serialize> AsContent for &'a Content<V> {
+        type Output = ContentAsContent<'a, V>;
+
+        fn as_content(&self) -> Self::Output {
+            match self {
+                Content::Request(cmd) => ContentAsContent::Request(cmd),
+                Content::Response(rsp) => ContentAsContent::Response(rsp),
+                Content::Notification(n) => ContentAsContent::Notification(n),
+            }
+        }
+    }
+}
+
+impl<V> TryFrom<Body<Content<V>>> for Content<V> {
+    type Error = Error;
+
+    fn try_from(value: Body<Content<V>>) -> Result<Self, Self::Error> {
+        let Body::OpenC2(value) = value;
+        Ok(value)
+    }
 }
 
 #[cfg(all(test, feature = "json"))]
@@ -183,5 +288,80 @@ mod tests {
                 ..
             }))
         ));
+    }
+
+    #[test]
+    fn deserialize_through_body() {
+        let message: crate::Message<crate::Headers<serde_json::Value>, Content<serde_json::Value>> =
+            from_value(json!(
+                {
+                    "headers": {
+                        "request_id": "123",
+                    },
+                    "body": {
+                        "openc2": {
+                            "request": {
+                                "action": "deny",
+                                "target": {
+                                    "file": {
+                                        "path": "/hello.pdf"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "content_type": "application/openc2",
+                }
+            ))
+            .unwrap();
+
+        assert!(matches!(
+            message.body,
+            Content::Request(Command {
+                action: crate::Action::Deny,
+                target: Target::File(_),
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn round_trip_command_through_body() {
+        let message: crate::Message<
+            crate::Headers<serde_json::Value>,
+            crate::Command<serde_json::Value>,
+        > = from_value(json!(
+            {
+                "headers": {
+                    "request_id": "123",
+                },
+                "body": {
+                    "openc2": {
+                        "request": {
+                            "action": "deny",
+                            "target": {
+                                "file": {
+                                    "path": "/hello.pdf"
+                                }
+                            }
+                        }
+                    }
+                },
+                "content_type": "application/openc2",
+            }
+        ))
+        .unwrap();
+
+        assert!(matches!(
+            message.body,
+            Command {
+                action: crate::Action::Deny,
+                target: Target::File(_),
+                ..
+            }
+        ));
+
+        let value = serde_json::to_value(&message).unwrap();
+        assert_eq!(value["body"]["openc2"]["request"]["action"], "deny");
     }
 }

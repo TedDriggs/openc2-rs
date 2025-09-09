@@ -28,7 +28,7 @@ pub use command::{Action, Command};
 pub use data::*;
 
 #[doc(inline)]
-pub use message::{Body, Content, Headers, Message};
+pub use message::{AsBody, AsContent, Body, Content, Headers, Message};
 
 pub use notification::Notification;
 
@@ -45,7 +45,7 @@ pub use traits::{Check, IsEmpty};
 pub mod json {
     use serde_json::Value;
 
-    pub type Body = super::Body<Value>;
+    pub type Body = super::Body<Content>;
     pub type Content = super::Content<Value>;
     pub type Headers = super::Headers<Value>;
     pub type Message = super::Message<Headers, Body>;
@@ -60,8 +60,10 @@ pub mod json {
 #[cfg(feature = "cbor")]
 pub mod cbor {
     use serde_cbor::Value;
+    pub type Body = super::Body<Content>;
     pub type Content = super::Content<Value>;
-    pub type Message = super::Message<Value>;
+    pub type Headers = super::Headers<Value>;
+    pub type Message = super::Message<Headers, Body>;
     pub type Command = super::Command<Value>;
     pub type Response = super::Response<Value>;
     pub type Extensions = super::Extensions<Value>;
