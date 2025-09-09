@@ -1,4 +1,4 @@
-use openc2::{Nsid, Profile, target::ProfileTargetType};
+use openc2::{Nsid, Profile, Value, target::ProfileTargetType};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -22,16 +22,38 @@ impl Target {
     }
 }
 
-impl TryFrom<openc2::json::Target> for Target {
+impl<V> TryFrom<openc2::Target<V>> for Target
+where
+    V: openc2::Value,
+    openc2::Error: From<V::Error>,
+{
     type Error = openc2::Error;
 
-    fn try_from(value: openc2::json::Target) -> Result<Self, Self::Error> {
+    fn try_from(value: openc2::Target<V>) -> Result<Self, Self::Error> {
         match value {
-            openc2::Target::Extension(d) if &d.key == NS => Ok(d.value.get()?),
+            openc2::Target::ProfileDefined(d) if &d.key == NS => Ok(d.value.get()?),
             _ => Err(openc2::Error::custom(
                 "target is not defined by the ER-profile",
             )),
         }
+    }
+}
+
+/// Convert to a generic OpenC2 target.
+///
+/// # Panics
+/// This panics if serialization to the value type fails. This should not happen.
+impl<V: Value> From<Target> for openc2::Target<V> {
+    fn from(value: Target) -> Self {
+        openc2::Target::profile_defined(
+            NS,
+            value.kind().as_str(),
+            match value {
+                Target::Account(a) => V::from_typed(&a).unwrap(),
+                Target::Service(s) => V::from_typed(&s).unwrap(),
+                Target::RegistryEntry(r) => V::from_typed(&r).unwrap(),
+            },
+        )
     }
 }
 

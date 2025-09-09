@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 
 /// An abstraction over different value types, such as JSON or CBOR.
 pub trait Value: Sized {
@@ -11,7 +11,7 @@ pub trait Value: Sized {
     fn from_typed<V: Serialize>(value: &V) -> Result<Self, Self::Error>;
 
     /// Deserialize a value from the value type.
-    fn to_typed<T: DeserializeOwned>(self) -> Result<T, Self::Error>;
+    fn to_typed<'a, T: Deserialize<'a>>(&'a self) -> Result<T, Self::Error>;
 }
 
 #[cfg(feature = "json")]
@@ -22,8 +22,8 @@ impl Value for serde_json::Value {
         serde_json::to_value(value)
     }
 
-    fn to_typed<T: DeserializeOwned>(self) -> Result<T, Self::Error> {
-        serde_json::from_value(self)
+    fn to_typed<'a, T: Deserialize<'a>>(&'a self) -> Result<T, Self::Error> {
+        T::deserialize(self)
     }
 }
 
@@ -35,7 +35,7 @@ impl Value for serde_cbor::Value {
         serde_cbor::value::to_value(value)
     }
 
-    fn to_typed<T: DeserializeOwned>(self) -> Result<T, Self::Error> {
-        serde_cbor::value::from_value(self)
+    fn to_typed<'a, T: Deserialize<'a>>(&'a self) -> Result<T, Self::Error> {
+        todo!()
     }
 }

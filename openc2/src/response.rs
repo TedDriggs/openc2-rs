@@ -100,7 +100,9 @@ mod tests {
         assert!(scan.len() == 2);
 
         let query = &pairs[&Action::Query];
-        assert!(query.contains(&TargetType::Extension("crwd/hostgroup".parse().unwrap())));
+        assert!(query.contains(&TargetType::ProfileDefined(
+            "crwd/hostgroup".parse().unwrap()
+        )));
         assert!(query.len() == 1);
     }
 }

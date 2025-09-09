@@ -1,6 +1,4 @@
-use serde::{
-    Deserialize, Deserializer, Serialize, Serializer, de::DeserializeOwned, ser::SerializeMap,
-};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
 
 use crate::Value;
 
@@ -26,9 +24,9 @@ impl<K, V: Value> Choice<K, V> {
     }
 }
 
-impl<K, V: Value + Clone> Choice<K, V> {
-    pub fn get<T: DeserializeOwned>(&self) -> Result<T, V::Error> {
-        self.value.clone().to_typed()
+impl<K, V: Value> Choice<K, V> {
+    pub fn get<'a, T: Deserialize<'a>>(&'a self) -> Result<T, V::Error> {
+        self.value.to_typed()
     }
 }
 
