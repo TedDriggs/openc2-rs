@@ -2,7 +2,7 @@ use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-use crate::{ActionTargets, Body, Content, Error, Extensions, Nsid, Version};
+use crate::{ActionTargets, Body, Content, Error, Extensions, IsEmpty, Nsid, Version};
 
 /// A message sent from an entity as the result of a command. Response
 /// messages provide acknowledgement, status, results from a query or other information as requested from
@@ -93,11 +93,11 @@ pub enum StatusCode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Results<V> {
-    #[serde(default, skip_serializing_if = "IndexSet::is_empty")]
+    #[serde(default, skip_serializing_if = "IsEmpty::is_empty")]
     pub versions: IndexSet<Version>,
-    #[serde(default, skip_serializing_if = "IndexSet::is_empty")]
+    #[serde(default, skip_serializing_if = "IsEmpty::is_empty")]
     pub profiles: IndexSet<Nsid>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "IsEmpty::is_empty")]
     pub pairs: Option<ActionTargets>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rate_limit: Option<u64>,

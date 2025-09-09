@@ -48,6 +48,12 @@ impl<T> IsEmpty for std::collections::BTreeSet<T> {
     }
 }
 
+impl<T> IsEmpty for indexmap::IndexSet<T> {
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+}
+
 impl<K, V, S> IsEmpty for std::collections::HashMap<K, V, S> {
     fn is_empty(&self) -> bool {
         self.is_empty()
@@ -55,6 +61,12 @@ impl<K, V, S> IsEmpty for std::collections::HashMap<K, V, S> {
 }
 
 impl<K, V> IsEmpty for std::collections::BTreeMap<K, V> {
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+}
+
+impl<K, V> IsEmpty for indexmap::IndexMap<K, V> {
     fn is_empty(&self) -> bool {
         self.is_empty()
     }
