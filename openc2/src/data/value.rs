@@ -1,9 +1,11 @@
+use std::fmt::Debug;
+
 use serde::{Serialize, de::DeserializeOwned};
 
 /// An abstraction over different value types, such as JSON or CBOR.
 pub trait Value: Sized {
     /// The error type returned when converting to or from the value type.
-    type Error;
+    type Error: Debug;
 
     /// Serialize a value to the value type.
     fn from_typed<V: Serialize>(value: &V) -> Result<Self, Self::Error>;
