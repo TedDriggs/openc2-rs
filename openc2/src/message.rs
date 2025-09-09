@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::borrow::Cow;
 
 use from_variants::FromVariants;
 use serde::{Deserialize, Serialize, Serializer, de::DeserializeOwned};
@@ -12,34 +12,30 @@ use crate::{
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct Headers<V> {
+pub struct Headers {
     pub request_id: Option<CommandId>,
     pub created: Option<DateTime>,
     pub from: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub to: Vec<String>,
-    #[serde(flatten, default, skip_serializing_if = "IsEmpty::is_empty")]
-    pub additional: HashMap<String, V>,
 }
 
-impl<V> IsEmpty for Headers<V> {
+impl IsEmpty for Headers {
     fn is_empty(&self) -> bool {
         self.request_id.is_none()
             && self.created.is_none()
             && self.from.is_none()
             && self.to.is_empty()
-            && self.additional.is_empty()
     }
 }
 
-impl<V> Default for Headers<V> {
+impl Default for Headers {
     fn default() -> Self {
         Self {
             request_id: None,
             created: None,
             from: None,
             to: Default::default(),
-            additional: Default::default(),
         }
     }
 }
@@ -133,7 +129,7 @@ impl<H, B> Message<H, B> {
     pub const CONTENT_TYPE: &str = "application/openc2";
 }
 
-impl<V> Message<Headers<V>, Body<Content<V>>> {
+impl<V> Message<Headers, Body<Content<V>>> {
     pub fn command_id(&self) -> Option<&CommandId> {
         let Body::OpenC2(body) = &self.body;
         match body {
@@ -147,7 +143,7 @@ impl<V> Message<Headers<V>, Body<Content<V>>> {
     }
 }
 
-impl<V> From<Body<Content<V>>> for Message<Headers<V>, Body<Content<V>>> {
+impl<H: Default, V> From<Body<Content<V>>> for Message<H, Body<Content<V>>> {
     fn from(value: Body<Content<V>>) -> Self {
         // Auto-promote status code from response body
         let status_code = if let Body::OpenC2(Content::Response(r)) = &value {
@@ -157,7 +153,7 @@ impl<V> From<Body<Content<V>>> for Message<Headers<V>, Body<Content<V>>> {
         };
 
         Self {
-            headers: Headers::default(),
+            headers: H::default(),
             content_type: Cow::Borrowed(Self::CONTENT_TYPE),
             body: value,
             status_code,
@@ -165,13 +161,13 @@ impl<V> From<Body<Content<V>>> for Message<Headers<V>, Body<Content<V>>> {
     }
 }
 
-impl<V> From<Content<V>> for Message<Headers<V>, Body<Content<V>>> {
+impl<H: Default, V> From<Content<V>> for Message<H, Body<Content<V>>> {
     fn from(value: Content<V>) -> Self {
         Body::from(value).into()
     }
 }
 
-impl<V> Check for Message<Headers<V>, Body<Content<V>>> {
+impl<V> Check for Message<Headers, Body<Content<V>>> {
     fn check(&self) -> Result<(), Error> {
         let mut acc = Error::accumulator();
 
@@ -292,7 +288,7 @@ mod tests {
 
     #[test]
     fn deserialize_through_body() {
-        let message: crate::Message<crate::Headers<serde_json::Value>, Content<serde_json::Value>> =
+        let message: crate::Message<crate::Headers, Content<serde_json::Value>> =
             from_value(json!(
                 {
                     "headers": {
@@ -327,30 +323,28 @@ mod tests {
 
     #[test]
     fn round_trip_command_through_body() {
-        let message: crate::Message<
-            crate::Headers<serde_json::Value>,
-            crate::Command<serde_json::Value>,
-        > = from_value(json!(
-            {
-                "headers": {
-                    "request_id": "123",
-                },
-                "body": {
-                    "openc2": {
-                        "request": {
-                            "action": "deny",
-                            "target": {
-                                "file": {
-                                    "path": "/hello.pdf"
+        let message: crate::Message<crate::Headers, crate::Command<serde_json::Value>> =
+            from_value(json!(
+                {
+                    "headers": {
+                        "request_id": "123",
+                    },
+                    "body": {
+                        "openc2": {
+                            "request": {
+                                "action": "deny",
+                                "target": {
+                                    "file": {
+                                        "path": "/hello.pdf"
+                                    }
                                 }
                             }
                         }
-                    }
-                },
-                "content_type": "application/openc2",
-            }
-        ))
-        .unwrap();
+                    },
+                    "content_type": "application/openc2",
+                }
+            ))
+            .unwrap();
 
         assert!(matches!(
             message.body,

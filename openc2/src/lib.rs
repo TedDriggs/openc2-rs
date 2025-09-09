@@ -47,8 +47,7 @@ pub mod json {
 
     pub type Body = super::Body<Content>;
     pub type Content = super::Content<Value>;
-    pub type Headers = super::Headers<Value>;
-    pub type Message = super::Message<Headers, Body>;
+    pub type Message = super::Message<super::Headers, Body>;
     pub type Command = super::Command<Value>;
     pub type Response = super::Response<Value>;
     pub type Extensions = super::Extensions<Value>;
@@ -62,7 +61,6 @@ pub mod cbor {
     use serde_cbor::Value;
     pub type Body = super::Body<Content>;
     pub type Content = super::Content<Value>;
-    pub type Headers = super::Headers<Value>;
     pub type Message = super::Message<Headers, Body>;
     pub type Command = super::Command<Value>;
     pub type Response = super::Response<Value>;
