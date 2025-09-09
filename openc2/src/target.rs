@@ -23,12 +23,23 @@ pub enum Target<V> {
     Ipv4Net(Ipv4Net),
     Ipv6Net(Ipv6Net),
     #[serde(untagged)]
-    Extension(Choice<Nsid, Choice<String, V>>),
+    ProfileDefined(Choice<Cow<'static, Nsid>, Choice<Cow<'static, str>, V>>),
 }
 
 impl<V> Target<V> {
     pub fn kind<'a>(&'a self) -> TargetType<'a> {
         self.into()
+    }
+
+    pub fn profile_defined(
+        profile: impl Into<Cow<'static, Nsid>>,
+        type_name: impl Into<Cow<'static, str>>,
+        value: V,
+    ) -> Self {
+        Self::ProfileDefined(Choice::new(
+            profile.into(),
+            Choice::new(type_name.into(), value),
+        ))
     }
 }
 
@@ -45,7 +56,7 @@ pub enum TargetType<'a> {
     Device,
     Features,
     #[serde(untagged)]
-    Extension(ProfileTargetType<'a>),
+    ProfileDefined(ProfileTargetType<'a>),
 }
 
 impl<'a, V> From<&'a Target<V>> for TargetType<'a> {
@@ -58,9 +69,10 @@ impl<'a, V> From<&'a Target<V>> for TargetType<'a> {
             Target::Ipv6Net(_) => TargetType::IpV6Net,
             Target::Device(_) => TargetType::Device,
             Target::Features(_) => TargetType::Features,
-            Target::Extension(ext) => {
-                TargetType::Extension(ProfileTargetType::new(&ext.key, &ext.value.key))
-            }
+            Target::ProfileDefined(ext) => TargetType::ProfileDefined(ProfileTargetType::new(
+                ext.key.as_ref(),
+                ext.value.key.as_ref(),
+            )),
         }
     }
 }
@@ -170,6 +182,6 @@ mod tests {
         ))
         .unwrap();
 
-        assert!(matches!(example, Target::Extension(Choice { .. })));
+        assert!(matches!(example, Target::ProfileDefined(Choice { .. })));
     }
 }
