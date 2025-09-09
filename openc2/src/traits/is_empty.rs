@@ -28,3 +28,9 @@ impl<K, V, S> IsEmpty for std::collections::HashMap<K, V, S> {
         self.is_empty()
     }
 }
+
+impl<K, V> IsEmpty for std::collections::BTreeMap<K, V> {
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+}
