@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use from_variants::FromVariants;
-use serde::{Deserialize, Serialize, Serializer, de::DeserializeOwned};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_with::skip_serializing_none;
 
 use crate::{
@@ -29,9 +29,13 @@ impl IsEmpty for Headers {
     }
 }
 
+/// The body of an OpenC2 message.
+///
+/// The standard says this may be extended to other message types in the future.
 #[derive(Debug, Clone, Serialize, Deserialize, FromVariants)]
 #[non_exhaustive]
 pub enum Body<V> {
+    /// An OpenC2 message body.
     #[serde(rename = "openc2")]
     OpenC2(V),
 }
@@ -39,6 +43,7 @@ pub enum Body<V> {
 /// Trait for converting a type into a serializable body that conforms to the OpenC2 message body structure.
 /// This allows for types such as `Message<Command>` to be serialized correctly as OpenC2 bodies.
 pub trait AsBody {
+    /// The intermediate type that represents `Self` in a way that complies with the OpenC2 body structure.
     type Output: Serialize;
 
     /// Returns the body representation of the type. This method should borrow from the type to avoid unnecessary
@@ -73,6 +78,11 @@ impl<T: AsContent> AsBody for T {
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message<H, B> {
+    /// Message headers.
+    ///
+    /// This field will be omitted from the serialized message if the headers are empty.
+    ///
+    /// Use a custom header type to access additional headers.
     #[serde(
         default,
         skip_serializing_if = "IsEmpty::is_empty",
@@ -132,6 +142,18 @@ impl<V> Message<Headers, Body<Content<V>>> {
     }
 }
 
+impl<H: Default, V> From<Response<V>> for Message<H, Response<V>> {
+    fn from(value: Response<V>) -> Self {
+        let status_code = value.status;
+        Self {
+            headers: H::default(),
+            content_type: Cow::Borrowed(Self::CONTENT_TYPE),
+            body: value,
+            status_code: Some(status_code),
+        }
+    }
+}
+
 impl<H: Default, V> From<Body<Content<V>>> for Message<H, Body<Content<V>>> {
     fn from(value: Body<Content<V>>) -> Self {
         // Auto-promote status code from response body
@@ -183,18 +205,22 @@ impl<V> Check for Message<Headers, Body<Content<V>>> {
     }
 }
 
+/// The content of an OpenC2 message body.
 #[derive(Debug, Clone, Serialize, Deserialize, FromVariants)]
-#[serde(
-    rename_all = "snake_case",
-    bound = "V: Serialize + DeserializeOwned + Default"
-)]
+#[serde(rename_all = "snake_case")]
 pub enum Content<V> {
+    /// A request from producer to consumer with a command to perform an action.
     Request(Command<V>),
+    /// A response from consumer to producer with the status and results of a command.
+    #[serde(bound(deserialize = "V: Deserialize<'de> + Default"))]
     Response(Response<V>),
     Notification(Notification<V>),
 }
 
+/// Trait for converting a type into a serializable message content that conforms to the OpenC2 message content structure.
+/// This allows for types such as `Message<Command>` to be serialized correctly as OpenC2 message contents.
 pub trait AsContent {
+    /// The intermediate type that represents `Self` in a way that complies with the OpenC2 content structure.
     type Output: Serialize;
 
     fn as_content(&self) -> Self::Output;
