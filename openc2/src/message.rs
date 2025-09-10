@@ -142,6 +142,17 @@ impl<V> Message<Headers, Body<Content<V>>> {
     }
 }
 
+impl<H: Default, V> From<Command<V>> for Message<H, Command<V>> {
+    fn from(value: Command<V>) -> Self {
+        Self {
+            headers: H::default(),
+            content_type: Cow::Borrowed(Self::CONTENT_TYPE),
+            body: value,
+            status_code: None,
+        }
+    }
+}
+
 impl<H: Default, V> From<Response<V>> for Message<H, Response<V>> {
     fn from(value: Response<V>) -> Self {
         let status_code = value.status;

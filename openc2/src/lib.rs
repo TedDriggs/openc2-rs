@@ -22,7 +22,7 @@ pub use error::Error;
 pub use profile::Profile;
 
 #[doc(inline)]
-pub use command::{Action, Command};
+pub use command::{Action, Args, Command};
 
 #[doc(inline)]
 pub use data::*;
@@ -45,6 +45,7 @@ pub use traits::{Check, IsEmpty};
 pub mod json {
     use serde_json::Value;
 
+    pub type Args = super::Args<Value>;
     pub type Body = super::Body<Content>;
     pub type Content = super::Content<Value>;
     pub type Message = super::Message<super::Headers, Body>;
@@ -59,6 +60,8 @@ pub mod json {
 #[cfg(feature = "cbor")]
 pub mod cbor {
     use serde_cbor::Value;
+
+    pub type Args = super::Args<Value>;
     pub type Body = super::Body<Content>;
     pub type Content = super::Content<Value>;
     pub type Message = super::Message<Headers, Body>;

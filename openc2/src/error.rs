@@ -26,6 +26,10 @@ impl Error {
         ValidationError::new(message.to_string()).into()
     }
 
+    pub fn not_implemented(message: impl Display) -> Self {
+        NotImplementedError::new(message).into()
+    }
+
     pub fn at(mut self, segment: impl Into<PathSegment>) -> Self {
         let segment = segment.into();
         match &mut self.kind {
@@ -284,6 +288,15 @@ impl ValidationError {
 pub struct NotImplementedError {
     message: String,
     path: Option<Path>,
+}
+
+impl NotImplementedError {
+    pub fn new(message: impl Display) -> Self {
+        Self {
+            message: message.to_string(),
+            path: None,
+        }
+    }
 }
 
 impl fmt::Display for NotImplementedError {

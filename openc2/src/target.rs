@@ -143,6 +143,14 @@ pub struct Device {
 }
 
 impl Device {
+    pub fn with_device_id(value: impl Into<String>) -> Self {
+        Self {
+            hostname: None,
+            idn_hostname: None,
+            device_id: Some(value.into()),
+        }
+    }
+
     pub fn with_hostname(value: impl Into<String>) -> Self {
         Self {
             hostname: Some(value.into()),
