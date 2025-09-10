@@ -5,6 +5,7 @@ use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay, skip_serializing_none};
 use std::{borrow::Cow, fmt, str::FromStr};
+pub use url::Url;
 
 use crate::{
     CommandId, Feature, Hashes, Ipv4Net, Ipv6Net, Nsid, Payload, error::ValidationError,
@@ -22,6 +23,7 @@ pub enum Target<V> {
     File(File),
     Ipv4Net(Ipv4Net),
     Ipv6Net(Ipv6Net),
+    Uri(Url),
     #[serde(untagged)]
     ProfileDefined(Choice<Cow<'static, Nsid>, Choice<Cow<'static, str>, V>>),
 }
@@ -61,6 +63,7 @@ pub enum TargetType<'a> {
     IpV6Net,
     Device,
     Features,
+    Uri,
     #[serde(untagged)]
     ProfileDefined(ProfileTargetType<'a>),
 }
@@ -75,6 +78,7 @@ impl<'a, V> From<&'a Target<V>> for TargetType<'a> {
             Target::Ipv6Net(_) => TargetType::IpV6Net,
             Target::Device(_) => TargetType::Device,
             Target::Features(_) => TargetType::Features,
+            Target::Uri(_) => TargetType::Uri,
             Target::ProfileDefined(ext) => TargetType::ProfileDefined(ProfileTargetType::new(
                 ext.key.as_ref(),
                 ext.value.key.as_ref(),
