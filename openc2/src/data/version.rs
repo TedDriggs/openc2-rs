@@ -13,6 +13,12 @@ pub struct Version {
     pub minor: u8,
 }
 
+impl Version {
+    pub fn new(major: u8, minor: u8) -> Self {
+        Self { major, minor }
+    }
+}
+
 impl fmt::Debug for Version {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{self}")
