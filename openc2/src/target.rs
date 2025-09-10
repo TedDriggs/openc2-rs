@@ -43,6 +43,12 @@ impl<V> Target<V> {
     }
 }
 
+impl<V> From<Vec<Feature>> for Target<V> {
+    fn from(value: Vec<Feature>) -> Self {
+        Self::Features(value.into_iter().collect())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
 pub enum TargetType<'a> {
