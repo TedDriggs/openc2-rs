@@ -1,5 +1,6 @@
 use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::skip_serializing_none;
 
 use crate::{ActionTargets, Body, Content, Error, Extensions, IsEmpty, Nsid, Version};
@@ -77,7 +78,10 @@ impl<V> TryFrom<Body<Content<V>>> for Response<V> {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(
+    Debug, Clone, Copy, Serialize_repr, Deserialize_repr, PartialEq, Eq, Hash, PartialOrd, Ord,
+)]
+#[repr(u16)]
 pub enum StatusCode {
     Processing = 102,
     Ok = 200,
@@ -103,6 +107,18 @@ pub struct Results<V> {
     pub rate_limit: Option<u64>,
     #[serde(flatten, default, skip_serializing_if = "Extensions::is_empty")]
     pub extensions: Extensions<V>,
+}
+
+impl<V> Default for Results<V> {
+    fn default() -> Self {
+        Self {
+            versions: Default::default(),
+            profiles: Default::default(),
+            pairs: Default::default(),
+            rate_limit: Default::default(),
+            extensions: Default::default(),
+        }
+    }
 }
 
 #[cfg(all(test, feature = "json"))]
