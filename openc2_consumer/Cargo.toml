@@ -1,0 +1,13 @@
+[package]
+name = "openc2_consumer"
+version = "0.1.0"
+edition = "2024"
+authors = ["Ted Driggs <t.driggs@outlook.com>"]
+license = "MIT"
+repository = "https://github.com/TedDriggs/openc2-rs"
+description = "Rust types for OpenC2 consumers"
+
+[dependencies]
+async-trait = "0.1.89"
+futures = "0.3.31"
+openc2 = { path = "../openc2", version = "=0.1.0" }
