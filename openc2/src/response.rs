@@ -121,6 +121,12 @@ impl<V> Default for Results<V> {
     }
 }
 
+impl<V> From<Results<V>> for Response<V> {
+    fn from(value: Results<V>) -> Self {
+        Self::new(StatusCode::Ok).with_results(value)
+    }
+}
+
 #[cfg(all(test, feature = "json"))]
 mod tests {
     use serde_json::{Value, from_value, json};
