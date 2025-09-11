@@ -32,6 +32,28 @@ impl<V> Command<V> {
             command_id: None,
         }
     }
+
+    /// Returns the action and target of the command as a tuple.
+    ///
+    /// # Usage
+    /// ```rust
+    /// # use openc2::{Action, Command, Error, Target};
+    ///
+    /// fn example<V>(cmd: &Command<V>) -> Result<(), Error> {
+    ///     match cmd.as_action_target() {
+    ///       (Action::Query, Target::Features(features)) => {
+    ///           // handle feature query
+    ///          Ok(())
+    ///       }
+    ///      (action, target) => Err(Error::not_implemented_pair(action, &target.into())),
+    ///   }
+    /// }
+    ///
+    /// # fn main() {}
+    /// ```
+    pub fn as_action_target(&self) -> (Action, &Target<V>) {
+        (self.action, &self.target)
+    }
 }
 
 mod command_as_content {

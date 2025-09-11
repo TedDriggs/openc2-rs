@@ -7,7 +7,7 @@ use std::{
 
 use from_variants::FromVariants;
 
-use crate::{Response, StatusCode};
+use crate::{Action, Response, StatusCode, TargetType};
 
 /// Trait for prepending location information to errors.
 pub trait ErrorAt: Sized {
@@ -40,6 +40,14 @@ impl Error {
 
     pub fn not_implemented(message: impl Display) -> Self {
         NotImplementedError::new(message).into()
+    }
+
+    /// Returns an error indicating that the action-target pair is not implemented.
+    pub fn not_implemented_pair(action: Action, target: &TargetType) -> Self {
+        Self::not_implemented(format!(
+            "unsupported action-target pair: {} - {}",
+            action, target
+        ))
     }
 
     pub fn at(mut self, segment: impl Into<PathSegment>) -> Self {
