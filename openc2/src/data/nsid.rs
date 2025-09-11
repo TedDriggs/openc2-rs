@@ -5,7 +5,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::error::ValidationError;
+use crate::error::{PathSegment, ValidationError};
 
 #[derive(
     Debug, Clone, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, Hash, PartialOrd, Ord,
@@ -101,5 +101,11 @@ impl From<Nsid> for Cow<'_, Nsid> {
 impl<'a> From<&'a Nsid> for Cow<'a, Nsid> {
     fn from(value: &'a Nsid) -> Self {
         Cow::Borrowed(value)
+    }
+}
+
+impl From<Nsid> for PathSegment {
+    fn from(value: Nsid) -> Self {
+        PathSegment::from(value.0)
     }
 }

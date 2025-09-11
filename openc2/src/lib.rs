@@ -16,7 +16,7 @@ mod response;
 pub mod target;
 mod traits;
 
-pub use error::Error;
+pub use error::{Error, ErrorAt};
 
 #[doc(inline)]
 pub use profile::Profile;

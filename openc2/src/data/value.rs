@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 /// An abstraction over different value types, such as JSON or CBOR.
 pub trait Value: Sized {
     /// The error type returned when converting to or from the value type.
-    type Error: Debug;
+    type Error: Debug + serde::de::Error + serde::ser::Error;
 
     /// Serialize a value to the value type.
     fn from_typed<V: Serialize>(value: &V) -> Result<Self, Self::Error>;

@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 
 use indexmap::{IndexMap, IndexSet};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize, de::Error as _};
 use serde_with::skip_serializing_none;
 use url::Url;
 
@@ -52,8 +52,23 @@ impl<V> Extensions<V> {
 }
 
 impl<V: Value + Clone> Extensions<V> {
-    pub fn get<T: DeserializeOwned>(&self, key: &impl Borrow<str>) -> Option<Result<T, V::Error>> {
-        self.get_raw(key).map(|v| v.clone().to_typed())
+    /// Gets an extension's value by key, or returns `None` if the key doesn't exist.
+    pub fn get<'de, T: Deserialize<'de>>(
+        &'de self,
+        key: &impl Borrow<str>,
+    ) -> Option<Result<T, V::Error>> {
+        self.get_raw(key).map(|v| v.to_typed())
+    }
+
+    /// Get's an extension's value by key, returning an error if the key doesn't exist or
+    /// doesn't deserialize into the provided type.
+    pub fn require<'de, T: Deserialize<'de>>(
+        &'de self,
+        key: &impl Borrow<str>,
+    ) -> Result<T, V::Error> {
+        self.get::<T>(key)
+            .transpose()?
+            .ok_or_else(|| V::Error::custom(format!("extension {} is required", key.borrow())))
     }
 }
 

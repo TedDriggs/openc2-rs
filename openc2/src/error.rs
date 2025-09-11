@@ -9,6 +9,18 @@ use from_variants::FromVariants;
 
 use crate::{Response, StatusCode};
 
+/// Trait for prepending location information to errors.
+pub trait ErrorAt: Sized {
+    /// Add a new path segment to the front of an error's path.
+    fn at<P: Into<PathSegment>>(self, segment: P) -> Self;
+}
+
+impl<T, E: ErrorAt> ErrorAt for Result<T, E> {
+    fn at<P: Into<PathSegment>>(self, segment: P) -> Self {
+        self.map_err(|e| e.at(segment))
+    }
+}
+
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("{kind}")]
 pub struct Error {
@@ -58,6 +70,12 @@ impl Error {
             ErrorKind::Validation(err) => Some(err),
             _ => None,
         }
+    }
+}
+
+impl ErrorAt for Error {
+    fn at<P: Into<PathSegment>>(self, segment: P) -> Self {
+        self.at(segment)
     }
 }
 
@@ -187,6 +205,21 @@ impl Accumulator {
     }
 }
 
+impl ErrorAt for Accumulator {
+    fn at<P: Into<PathSegment>>(mut self, segment: P) -> Self {
+        let segment = segment.into();
+        self.errors = Some(
+            self.errors
+                .take()
+                .expect("accumulator not yet dropped")
+                .into_iter()
+                .map(|err| err.at(segment.clone()))
+                .collect(),
+        );
+        self
+    }
+}
+
 impl Default for Accumulator {
     fn default() -> Self {
         Self {
@@ -283,6 +316,12 @@ impl ValidationError {
     }
 }
 
+impl ErrorAt for ValidationError {
+    fn at<P: Into<PathSegment>>(self, segment: P) -> Self {
+        self.at(segment)
+    }
+}
+
 /// Error indicating that a consumer does not implement a requested feature.
 #[derive(Debug, Clone, thiserror::Error)]
 pub struct NotImplementedError {
@@ -296,6 +335,20 @@ impl NotImplementedError {
             message: message.to_string(),
             path: None,
         }
+    }
+}
+
+impl ErrorAt for NotImplementedError {
+    fn at<P: Into<PathSegment>>(mut self, segment: P) -> Self {
+        let segment = segment.into();
+        if let Some(path) = &mut self.path {
+            path.push_front(segment);
+        } else {
+            self.path = Some(Path {
+                segments: vec![segment].into(),
+            });
+        }
+        self
     }
 }
 
