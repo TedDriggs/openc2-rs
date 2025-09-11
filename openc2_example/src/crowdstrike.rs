@@ -126,7 +126,10 @@ impl Consume for EndpointResponse {
 
                 Ok(Response::new(StatusCode::Ok))
             }
-            _ => Err(Error::validation("unsupported action").at("action")),
+            (action, target) => Err(Error::validation(format!(
+                "unsupported action-target pair: {action} - {}",
+                target.kind()
+            ))),
         }
     }
 }
