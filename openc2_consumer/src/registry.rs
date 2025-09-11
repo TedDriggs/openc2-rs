@@ -38,7 +38,7 @@ impl Registration {
         mut self,
         actions: impl IntoIterator<Item = (Action, TargetType<'static>)>,
     ) -> Self {
-        self.actions.extend(actions.into_iter());
+        self.actions.extend(actions);
 
         self
     }

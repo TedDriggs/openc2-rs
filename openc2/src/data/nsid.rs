@@ -48,7 +48,7 @@ impl TryFrom<String> for Nsid {
 impl TryFrom<&'static str> for Nsid {
     type Error = ValidationError;
     fn try_from(value: &'static str) -> Result<Self, Self::Error> {
-        Nsid::check(&value).map_err(ValidationError::new)?;
+        Nsid::check(value).map_err(ValidationError::new)?;
         Ok(Self(Cow::Borrowed(value)))
     }
 }
@@ -56,7 +56,7 @@ impl TryFrom<&'static str> for Nsid {
 impl FromStr for Nsid {
     type Err = ValidationError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Nsid::check(&s).map_err(ValidationError::new)?;
+        Nsid::check(s).map_err(ValidationError::new)?;
 
         // For known profiles, reuse the const to avoid heap allocations
         match s {
