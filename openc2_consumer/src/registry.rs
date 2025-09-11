@@ -100,7 +100,7 @@ impl Registry {
         entry.into_iter().flat_map(move |indices| {
             indices
                 .iter()
-                .filter_map(move |&idx| self.consumers[idx].as_ref())
+                .filter_map(|&idx| self.consumers[idx].as_ref())
         })
     }
 
