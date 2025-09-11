@@ -219,15 +219,28 @@ impl Consume for Registry {
 
         let action = msg.body.action;
         let target_type = msg.body.target.kind();
-        let mut consumers = self.get_matching(&(action, target_type.clone())).peekable();
+        let mut consumers = self
+            .get_matching(&(action, target_type.clone()))
+            .collect::<Vec<_>>();
 
-        if consumers.peek().is_none() {
+        if consumers.is_empty() {
+            return Err(Error::not_implemented_pair(action, &target_type));
+        }
+
+        if let Some(profile) = &msg.body.profile {
+            consumers.retain(|consumer| consumer.profiles.contains(profile));
+        }
+
+        if consumers.is_empty() {
             return Err(Error::not_implemented(format!(
-                "No consumer found for action '{action}' and target type '{target_type:?}'"
+                "No consumer found for action '{action}' and target type '{target_type:?}' with profile '{:?}'",
+                msg.body.profile
             )));
         }
 
-        let futures = consumers.map(|consumer| consumer.consume(msg.clone()));
+        let futures = consumers
+            .into_iter()
+            .map(|consumer| consumer.consume(msg.clone()));
         let results: Vec<Result<Response, Error>> = join_all(futures).await;
         // TODO figure out how to combine multiple responses
         return results
