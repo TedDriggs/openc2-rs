@@ -19,7 +19,7 @@ pub enum Target<V> {
     Artifact(Artifact),
     Command(CommandId),
     Device(Device),
-    Features(IndexSet<Feature>),
+    Features(Features),
     File(File),
     Ipv4Net(Ipv4Net),
     Ipv6Net(Ipv6Net),
@@ -171,6 +171,9 @@ impl Device {
         }
     }
 }
+
+/// The set of features queried in a `query` action.
+pub type Features = IndexSet<Feature>;
 
 #[cfg(all(test, feature = "json"))]
 mod tests {
