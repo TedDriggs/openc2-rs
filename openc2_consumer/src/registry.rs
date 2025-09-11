@@ -5,6 +5,7 @@ use futures::future::join_all;
 use openc2::{
     Action, ActionTargets, Error, Feature, Headers, Message, Nsid, StatusCode, TargetType, Version,
     json::{Command, Response, Results, Target},
+    target::Features,
 };
 
 use crate::Consume;
@@ -59,11 +60,44 @@ impl Registration {
         self.profiles.extend(profiles);
         self
     }
+
+    pub fn query_features(&self, features: &Features) -> Result<Response, Error> {
+        if features.contains(&Feature::RateLimit) {
+            return Err(
+                Error::not_implemented("rate limit feature is not implemented").at("features"),
+            );
+        }
+
+        let mut results = Results::default();
+        if features.contains(&Feature::Profiles) {
+            results.profiles = self.profiles.iter().cloned().collect();
+        }
+
+        if features.contains(&Feature::Versions) {
+            results.versions = [Version::new(2, 0)].into_iter().collect();
+        }
+
+        if features.contains(&Feature::Pairs) {
+            results.pairs = Some(self.actions.iter().cloned().fold(
+                ActionTargets::new(),
+                |mut acc, (a, t)| {
+                    acc.entry(a).or_default().insert(t);
+                    acc
+                },
+            ));
+        }
+
+        Ok(results.into())
+    }
 }
 
 #[async_trait]
 impl Consume for Registration {
     async fn consume(&self, msg: Message<Headers, Command>) -> Result<Response, Error> {
+        if let (Action::Query, Target::Features(features)) = msg.body.as_action_target() {
+            return self.query_features(features);
+        }
+
         self.consumer.consume(msg).await
     }
 }
