@@ -51,8 +51,11 @@ impl<V> From<Vec<Feature>> for Target<V> {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord, strum::Display,
+)]
 #[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
 pub enum TargetType<'a> {
     Artifact,
     Command,
@@ -63,6 +66,7 @@ pub enum TargetType<'a> {
     Features,
     Uri,
     #[serde(untagged)]
+    #[strum(to_string = "{0}")]
     ProfileDefined(ProfileTargetType<'a>),
 }
 
@@ -170,7 +174,7 @@ impl Device {
 
 #[cfg(all(test, feature = "json"))]
 mod tests {
-    use crate::primitive::Choice;
+    use crate::{Nsid, TargetType, primitive::Choice, target::ProfileTargetType};
 
     use super::Target;
     use serde_json::{Value, from_value, json};
@@ -199,5 +203,18 @@ mod tests {
         .unwrap();
 
         assert!(matches!(example, Target::ProfileDefined(Choice { .. })));
+    }
+
+    #[test]
+    fn target_type_display() {
+        assert_eq!(TargetType::Ipv4Net.to_string(), "ipv4_net");
+    }
+
+    #[test]
+    fn target_type_display_extended() {
+        assert_eq!(
+            TargetType::ProfileDefined(ProfileTargetType::new(Nsid::ER, "account")).to_string(),
+            "er/account"
+        );
     }
 }
