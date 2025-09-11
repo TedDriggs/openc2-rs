@@ -19,7 +19,7 @@ pub struct Response<V> {
     pub status: StatusCode,
     /// A description providing additional information about the status of the response.
     pub status_text: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "IsEmpty::is_empty")]
     pub results: Option<Results<V>>,
 }
 
@@ -118,6 +118,16 @@ impl<V> Default for Results<V> {
             rate_limit: Default::default(),
             extensions: Default::default(),
         }
+    }
+}
+
+impl<V> IsEmpty for Results<V> {
+    fn is_empty(&self) -> bool {
+        self.versions.is_empty()
+            && self.profiles.is_empty()
+            && self.pairs.is_empty()
+            && self.rate_limit.is_none()
+            && self.extensions.is_empty()
     }
 }
 
