@@ -145,7 +145,7 @@ mod tests {
         let pairs = example.pairs.unwrap();
 
         let scan = &pairs[&Action::Scan];
-        assert!(scan.contains(&TargetType::IpV4Net));
+        assert!(scan.contains(&TargetType::Ipv4Net));
         assert!(scan.contains(&TargetType::File));
         assert!(scan.len() == 2);
 

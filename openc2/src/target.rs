@@ -57,10 +57,8 @@ pub enum TargetType<'a> {
     Artifact,
     Command,
     File,
-    #[serde(rename = "ipv4_net")]
-    IpV4Net,
-    #[serde(rename = "ipv6_net")]
-    IpV6Net,
+    Ipv4Net,
+    Ipv6Net,
     Device,
     Features,
     Uri,
@@ -74,8 +72,8 @@ impl<'a, V> From<&'a Target<V>> for TargetType<'a> {
             Target::Artifact(_) => TargetType::Artifact,
             Target::Command(_) => TargetType::Command,
             Target::File(_) => TargetType::File,
-            Target::Ipv4Net(_) => TargetType::IpV4Net,
-            Target::Ipv6Net(_) => TargetType::IpV6Net,
+            Target::Ipv4Net(_) => TargetType::Ipv4Net,
+            Target::Ipv6Net(_) => TargetType::Ipv6Net,
             Target::Device(_) => TargetType::Device,
             Target::Features(_) => TargetType::Features,
             Target::Uri(_) => TargetType::Uri,
