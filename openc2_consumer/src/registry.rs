@@ -13,8 +13,10 @@ use crate::Consume;
 
 pub struct ConsumerToken(usize);
 
+/// A registration of an OpenC2 consumer along with the action/target pairs it wishes to handle.
 pub struct Registration {
     consumer: Box<dyn Consume + Send + Sync>,
+    /// A map of the action targets this consumer wishes to handle, keyed by optional profile.
     actions: HashMap<Option<Nsid>, ActionTargets>,
 }
 
@@ -56,6 +58,8 @@ impl Registration {
         self
     }
 
+    /// Returns the profiles this consumer supports.
+    /// This could be empty if the consumer only supports actions without profiles.
     pub fn profiles(&self) -> impl Iterator<Item = &Nsid> {
         self.actions.keys().flatten()
     }
@@ -67,6 +71,7 @@ impl Registration {
             .flat_map(|(a, t)| t.iter().cloned().map(move |target| (*a, target)))
     }
 
+    /// Checks if this registration matches the given action, target type, and profile.
     pub fn matches(&self, action: Action, target: &TargetType, profile: &Nsid) -> bool {
         let Some(entry) = self.actions.get(&Some(profile.clone())) else {
             return false;
@@ -277,7 +282,9 @@ impl Consume for Registry {
                             .into_iter()
                             .map(|(ap, pairs)| (ap, ProfileFeatures { pairs })),
                     )
-                    .unwrap();
+                    .map_err(|e| {
+                        Error::custom(format!("unable to serialize profile-specific pairs: {e}"))
+                    })?;
             }
 
             return Ok(Response::new(StatusCode::Ok).with_results(results));
@@ -299,7 +306,7 @@ impl Consume for Registry {
 
         if consumers.is_empty() {
             return Err(Error::not_implemented(format!(
-                "No consumer found for action '{action}' and target type '{target_type:?}' with profile '{:?}'",
+                "No consumer for action '{action}' and target type '{target_type:?}' matches profile '{:?}'",
                 msg.body.profile
             )));
         }
