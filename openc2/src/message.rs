@@ -69,6 +69,14 @@ impl<T: AsContent> AsBody for T {
     }
 }
 
+impl<B: AsRef<StatusCode>> AsRef<StatusCode> for Body<B> {
+    fn as_ref(&self) -> &StatusCode {
+        match self {
+            Body::OpenC2(content) => content.as_ref(),
+        }
+    }
+}
+
 /// An OpenC2 message.
 ///
 /// This type is generic over the headers and body. To ensure correctness for serialization and deserialization,
@@ -153,9 +161,10 @@ impl<H: Default, V> From<Command<V>> for Message<H, Command<V>> {
     }
 }
 
-impl<H: Default, V> From<Response<V>> for Message<H, Response<V>> {
-    fn from(value: Response<V>) -> Self {
-        let status_code = value.status;
+/// Create a message from anything that has a status code.
+impl<H: Default, V: AsRef<StatusCode>> From<V> for Message<H, V> {
+    fn from(value: V) -> Self {
+        let status_code = *value.as_ref();
         Self {
             headers: H::default(),
             content_type: Cow::Borrowed(Self::CONTENT_TYPE),

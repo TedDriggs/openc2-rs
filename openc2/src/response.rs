@@ -66,6 +66,12 @@ mod response_as_content {
     }
 }
 
+impl<V> AsRef<StatusCode> for Response<V> {
+    fn as_ref(&self) -> &StatusCode {
+        &self.status
+    }
+}
+
 impl<V> TryFrom<Body<Content<V>>> for Response<V> {
     type Error = Error;
 
