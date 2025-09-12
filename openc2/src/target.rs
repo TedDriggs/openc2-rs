@@ -8,8 +8,8 @@ use std::{borrow::Cow, fmt, str::FromStr};
 pub use url::Url;
 
 use crate::{
-    CommandId, Feature, Hashes, Ipv4Net, Ipv6Net, IsEmpty, Nsid, Payload, error::ValidationError,
-    primitive::Choice,
+    CommandId, DomainName, EmailAddr, Feature, Hashes, Ipv4Net, Ipv6Net, IsEmpty, MacAddr, Nsid,
+    Payload, Port, error::ValidationError, primitive::Choice,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, FromVariants)]
@@ -19,10 +19,15 @@ pub enum Target<V> {
     Artifact(Artifact),
     Command(CommandId),
     Device(Device),
+    DomainName(DomainName),
+    EmailAddr(EmailAddr),
     Features(Features),
     File(File),
     Ipv4Net(Ipv4Net),
     Ipv6Net(Ipv6Net),
+    Ipv4Connection(Ipv4Connection),
+    Ipv6Connection(Ipv6Connection),
+    MacAddr(MacAddr),
     Process(Process),
     Uri(Url),
     #[serde(untagged)]
@@ -61,10 +66,15 @@ pub enum TargetType<'a> {
     Artifact,
     Command,
     File,
+    Device,
+    DomainName,
+    EmailAddr,
+    Features,
     Ipv4Net,
     Ipv6Net,
-    Device,
-    Features,
+    Ipv4Connection,
+    Ipv6Connection,
+    MacAddr,
     Process,
     Uri,
     #[serde(untagged)]
@@ -81,7 +91,12 @@ impl<'a, V> From<&'a Target<V>> for TargetType<'a> {
             Target::Ipv4Net(_) => TargetType::Ipv4Net,
             Target::Ipv6Net(_) => TargetType::Ipv6Net,
             Target::Device(_) => TargetType::Device,
+            Target::DomainName(_) => TargetType::DomainName,
+            Target::EmailAddr(_) => TargetType::EmailAddr,
             Target::Features(_) => TargetType::Features,
+            Target::Ipv4Connection(_) => TargetType::Ipv4Connection,
+            Target::Ipv6Connection(_) => TargetType::Ipv6Connection,
+            Target::MacAddr(_) => TargetType::MacAddr,
             Target::Process(_) => TargetType::Process,
             Target::Uri(_) => TargetType::Uri,
             Target::ProfileDefined(ext) => TargetType::ProfileDefined(ProfileTargetType::new(
@@ -183,6 +198,34 @@ impl Device {
 
 /// The set of features queried in a `query` action.
 pub type Features = IndexSet<Feature>;
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct Ipv4Connection {
+    pub src_addr: Option<Ipv4Net>,
+    pub src_port: Option<Port>,
+    pub dst_addr: Option<Ipv4Net>,
+    pub dst_port: Option<Port>,
+    pub protocol: Option<L4Protocol>,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct Ipv6Connection {
+    pub src_addr: Option<Ipv6Net>,
+    pub src_port: Option<Port>,
+    pub dst_addr: Option<Ipv6Net>,
+    pub dst_port: Option<Port>,
+    pub protocol: Option<L4Protocol>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum L4Protocol {
+    Tcp,
+    Udp,
+    Icmp,
+    Other(u8),
+}
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Hash)]

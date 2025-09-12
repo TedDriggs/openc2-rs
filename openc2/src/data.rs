@@ -1,19 +1,21 @@
-use std::borrow::Borrow;
+use std::{borrow::Borrow, fmt, str::FromStr};
 
 use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize, de::Error as _};
-use serde_with::skip_serializing_none;
+use serde_with::{DeserializeFromStr, SerializeDisplay, skip_serializing_none};
 use url::Url;
 
 use crate::{Action, IsEmpty, TargetType};
 
 mod ipnet;
+mod mac_addr;
 mod nsid;
 pub mod primitive;
 mod value;
 mod version;
 
 pub use ipnet::{Ipv4Net, Ipv6Net};
+pub use mac_addr::{MacAddr, MacAddr6, MacAddr8};
 pub use nsid::Nsid;
 pub use value::Value;
 pub use version::Version;
@@ -25,7 +27,43 @@ pub type CommandId = String;
 /// Epoch milliseconds
 pub type DateTime = u64;
 
-pub type DomainName = String;
+#[derive(
+    Debug, Clone, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
+pub struct DomainName(String);
+
+impl fmt::Display for DomainName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl FromStr for DomainName {
+    type Err = crate::error::ValidationError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(s.to_string()))
+    }
+}
+
+#[derive(
+    Debug, Clone, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
+pub struct EmailAddr(String);
+
+impl fmt::Display for EmailAddr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl FromStr for EmailAddr {
+    type Err = crate::error::ValidationError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(s.to_string()))
+    }
+}
 
 pub type Duration = u64;
 
@@ -149,6 +187,8 @@ pub enum Payload {
     Binary(Vec<u8>),
     Url(Url),
 }
+
+pub type Port = u16;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
