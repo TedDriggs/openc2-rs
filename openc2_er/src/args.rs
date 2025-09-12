@@ -31,7 +31,10 @@ pub enum AccountStatus {
     Disabled,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, strum::EnumString, strum::Display,
+)]
+#[strum(serialize_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceContainment {
     /// Isolate the endpoint from communicating with other networked entities,
