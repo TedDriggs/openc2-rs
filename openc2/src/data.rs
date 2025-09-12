@@ -88,6 +88,30 @@ impl<'de, V: Deserialize<'de>> Deserialize<'de> for Extensions<V> {
     }
 }
 
+impl<V> IntoIterator for Extensions<V> {
+    type Item = (Nsid, V);
+    type IntoIter = indexmap::map::IntoIter<Nsid, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a, V> IntoIterator for &'a Extensions<V> {
+    type Item = (&'a Nsid, &'a V);
+    type IntoIter = indexmap::map::Iter<'a, Nsid, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<V> FromIterator<(Nsid, V)> for Extensions<V> {
+    fn from_iter<T: IntoIterator<Item = (Nsid, V)>>(iter: T) -> Self {
+        Self(iter.into_iter().collect())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
