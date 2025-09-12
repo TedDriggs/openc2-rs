@@ -65,7 +65,37 @@ impl FromStr for EmailAddr {
     }
 }
 
-pub type Duration = u64;
+#[derive(Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[serde(transparent)]
+pub struct Duration(u64);
+
+impl Duration {
+    pub fn from_millis(millis: u64) -> Self {
+        Self(millis)
+    }
+
+    pub fn from_secs(secs: u64) -> Self {
+        Self(secs.checked_mul(1000).expect("duration overflow"))
+    }
+
+    pub fn from_hours(hours: u64) -> Self {
+        Self(
+            hours
+                .checked_mul(60 * 60 * 1000)
+                .expect("duration overflow"),
+        )
+    }
+
+    pub fn as_millis(&self) -> u64 {
+        self.0
+    }
+}
+
+impl fmt::Debug for Duration {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}ms", self.0)
+    }
+}
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(transparent)]
