@@ -137,6 +137,11 @@ impl<V> From<Results<V>> for Response<V> {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileFeatures {
+    pub pairs: ActionTargets,
+}
+
 #[cfg(all(test, feature = "json"))]
 mod tests {
     use serde_json::{Value, from_value, json};
