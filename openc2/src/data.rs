@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 use serde_with::skip_serializing_none;
 use url::Url;
 
-use crate::{Action, TargetType};
+use crate::{Action, IsEmpty, TargetType};
 
 mod ipnet;
 mod nsid;
@@ -78,6 +78,12 @@ impl<V> Default for Extensions<V> {
     }
 }
 
+impl<V> IsEmpty for Extensions<V> {
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 impl<'de, V: Deserialize<'de>> Deserialize<'de> for Extensions<V> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -128,6 +134,12 @@ pub struct Hashes {
     pub md5: Option<String>,
     pub sha1: Option<String>,
     pub sha256: Option<String>,
+}
+
+impl IsEmpty for Hashes {
+    fn is_empty(&self) -> bool {
+        self.md5.is_none() && self.sha1.is_none() && self.sha256.is_none()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]

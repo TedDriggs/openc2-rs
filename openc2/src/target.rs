@@ -8,7 +8,7 @@ use std::{borrow::Cow, fmt, str::FromStr};
 pub use url::Url;
 
 use crate::{
-    CommandId, Feature, Hashes, Ipv4Net, Ipv6Net, Nsid, Payload, error::ValidationError,
+    CommandId, Feature, Hashes, Ipv4Net, Ipv6Net, IsEmpty, Nsid, Payload, error::ValidationError,
     primitive::Choice,
 };
 
@@ -23,6 +23,7 @@ pub enum Target<V> {
     File(File),
     Ipv4Net(Ipv4Net),
     Ipv6Net(Ipv6Net),
+    Process(Process),
     Uri(Url),
     #[serde(untagged)]
     ProfileDefined(Choice<Cow<'static, Nsid>, Choice<Cow<'static, str>, V>>),
@@ -64,6 +65,7 @@ pub enum TargetType<'a> {
     Ipv6Net,
     Device,
     Features,
+    Process,
     Uri,
     #[serde(untagged)]
     #[strum(to_string = "{0}")]
@@ -80,6 +82,7 @@ impl<'a, V> From<&'a Target<V>> for TargetType<'a> {
             Target::Ipv6Net(_) => TargetType::Ipv6Net,
             Target::Device(_) => TargetType::Device,
             Target::Features(_) => TargetType::Features,
+            Target::Process(_) => TargetType::Process,
             Target::Uri(_) => TargetType::Uri,
             Target::ProfileDefined(ext) => TargetType::ProfileDefined(ProfileTargetType::new(
                 ext.key.as_ref(),
@@ -146,6 +149,12 @@ pub struct File {
     pub path: Option<String>,
 }
 
+impl IsEmpty for File {
+    fn is_empty(&self) -> bool {
+        self.name.is_none() && self.hashes.is_empty() && self.path.is_none()
+    }
+}
+
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Device {
@@ -174,6 +183,30 @@ impl Device {
 
 /// The set of features queried in a `query` action.
 pub type Features = IndexSet<Feature>;
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Hash)]
+pub struct Process {
+    pub pid: Option<u32>,
+    pub name: Option<String>,
+    pub cwd: Option<String>,
+    #[serde(skip_serializing_if = "IsEmpty::is_empty")]
+    pub executable: Option<File>,
+    #[serde(skip_serializing_if = "IsEmpty::is_empty")]
+    pub parent: Option<Box<Process>>,
+    pub command_line: Option<String>,
+}
+
+impl IsEmpty for Process {
+    fn is_empty(&self) -> bool {
+        self.pid.is_none()
+            && self.name.is_none()
+            && self.cwd.is_none()
+            && self.executable.is_empty()
+            && self.parent.is_empty()
+            && self.command_line.is_none()
+    }
+}
 
 #[cfg(all(test, feature = "json"))]
 mod tests {
