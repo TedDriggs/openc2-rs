@@ -24,12 +24,17 @@ impl EndpointResponse {
         Self { client }
     }
 
-    pub async fn contain_device(&self, id: &Aid) -> Result<Response, Error> {
+    pub async fn contain_device(&self, id: &Aid, _reason: Option<&str>) -> Result<Response, Error> {
         self.client
             .contain_device(id)
             .await
             .map_err(Error::custom)?;
         Ok(Response::new(StatusCode::Ok))
+    }
+
+    #[allow(unused_variables)]
+    pub async fn stop_process(&self, device: &Aid, pid: u32) -> Result<Response, Error> {
+        todo!()
     }
 }
 
@@ -37,22 +42,21 @@ impl EndpointResponse {
 /// and registers all the supported actions.
 impl From<EndpointResponse> for Registration {
     fn from(actuator: EndpointResponse) -> Self {
-        Registration::new(actuator).with_actions([(Nsid::ER, Action::Contain, TargetType::Device)])
+        Registration::new(actuator).with_actions([
+            (Nsid::ER, Action::Contain, TargetType::Device),
+            (Nsid::ER, Action::Restart, TargetType::Device),
+            (Nsid::ER, Action::Stop, TargetType::Process),
+            (Nsid::ER, Action::Deny, TargetType::File),
+        ])
     }
 }
 
 #[async_trait]
 impl Consume for EndpointResponse {
     async fn consume(&self, msg: Message<Headers, Command>) -> Result<Response, Error> {
-        let Command {
-            action,
-            target,
-            args,
-            profile,
-            ..
-        } = &msg.body;
+        let Command { args, profile, .. } = &msg.body;
 
-        match (action, target) {
+        match msg.body.as_action_target() {
             (Action::Contain, Target::Device(device)) => {
                 let mut errors = Error::accumulator();
 
@@ -98,8 +102,11 @@ impl Consume for EndpointResponse {
 
                 errors.finish()?;
 
-                self.contain_device(aid.as_ref().expect("AID was parsed"))
-                    .await
+                self.contain_device(
+                    aid.as_ref().expect("AID was parsed"),
+                    args.comment.as_deref(),
+                )
+                .await
             }
             (Action::Delete, Target::File(file)) => {
                 let Some(path) = &file.path else {
@@ -143,6 +150,53 @@ impl Consume for EndpointResponse {
                     .map_err(Error::custom)?;
 
                 Ok(Response::new(StatusCode::Ok))
+            }
+            (Action::Stop, Target::Process(process)) => {
+                let er_ext = msg
+                    .body
+                    .args
+                    .extensions
+                    .require::<openc2_er::Args>(&Nsid::ER)
+                    .map_err(Error::validation)
+                    .at(Nsid::ER)?;
+
+                let downstream = er_ext.require_downstream_device()?;
+
+                if downstream.devices.len() > 1 {
+                    return Err(Error::validation("only one device is supported")
+                        .at("devices")
+                        .at("downstream_device")
+                        .at(Nsid::ER));
+                }
+
+                let aids = downstream
+                    .devices
+                    .iter()
+                    .filter_map(|s| s.device_id.as_deref())
+                    .map(Aid::from_str)
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| {
+                        Error::validation(format!("invalid device id: {}", e))
+                            .at("devices")
+                            .at("downstream_device")
+                            .at(Nsid::ER)
+                    })?;
+
+                if aids.is_empty() {
+                    return Err(Error::validation("at least one device is required")
+                        .at("devices")
+                        .at("downstream_device")
+                        .at(Nsid::ER));
+                }
+
+                let pid = process.pid.ok_or_else(|| {
+                    Error::validation("process pid is required")
+                        .at("pid")
+                        .at("process")
+                        .at("target")
+                })?;
+
+                self.stop_process(&aids[0], pid).await
             }
             (action, target) => Err(Error::validation(format!(
                 "unsupported action-target pair: {action} - {}",
@@ -214,7 +268,8 @@ impl From<Sandbox> for Registration {
     fn from(actuator: Sandbox) -> Self {
         Registration::new(actuator).with_actions([
             (SANDBOX, Action::Detonate, TargetType::Uri),
-            (SANDBOX, Action::Detonate, TargetType::File),
+            (SANDBOX, Action::Detonate, TargetType::Artifact),
+            (SANDBOX, Action::Scan, TargetType::Artifact),
         ])
     }
 }

@@ -1,4 +1,4 @@
-use openc2::{DomainName, Ipv4Net, Ipv6Net, target::Device};
+use openc2::{DomainName, Error, Ipv4Net, Ipv6Net, IsEmpty, target::Device};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -14,7 +14,17 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn is_empty(&self) -> bool {
+    /// Returns the downstream_device value, or an error if it is not present.
+    pub fn require_downstream_device(&self) -> Result<&DownstreamDevice, Error> {
+        self.downstream_device
+            .as_ref()
+            .ok_or_else(|| Error::validation("downstream_device is required"))
+            .and_then(|dd| dd.require_not_empty())
+    }
+}
+
+impl IsEmpty for Args {
+    fn is_empty(&self) -> bool {
         self.account_status.is_none()
             && self.device_containment.is_none()
             && self.permitted_addresses.is_none()
@@ -59,7 +69,17 @@ pub struct DownstreamDevice {
 }
 
 impl DownstreamDevice {
-    pub fn is_empty(&self) -> bool {
+    pub fn require_not_empty(&self) -> Result<&Self, Error> {
+        if self.is_empty() {
+            Err(Error::validation("downstream_device is required"))
+        } else {
+            Ok(self)
+        }
+    }
+}
+
+impl IsEmpty for DownstreamDevice {
+    fn is_empty(&self) -> bool {
         self.devices.is_empty() && self.device_groups.is_empty() && self.tenant_id.is_none()
     }
 }
