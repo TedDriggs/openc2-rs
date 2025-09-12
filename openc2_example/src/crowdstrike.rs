@@ -87,14 +87,13 @@ impl Consume for EndpointResponse {
                         .require::<openc2_er::Args>(&Nsid::ER)
                         .map_err(Error::validation)
                         .at(Nsid::ER),
-                ) {
-                    if er_args.device_containment != Some(DeviceContainment::NetworkIsolation) {
-                        errors.push(
-                            Error::not_implemented("must be network_isolation")
-                                .at("device_containment")
-                                .at(Nsid::ER),
-                        );
-                    }
+                ) && er_args.device_containment != Some(DeviceContainment::NetworkIsolation)
+                {
+                    errors.push(
+                        Error::not_implemented("must be network_isolation")
+                            .at("device_containment")
+                            .at(Nsid::ER),
+                    );
                 }
 
                 errors.finish()?;
@@ -236,8 +235,7 @@ impl Consume for Sandbox {
 fn require_sha256(hashes: &Hashes) -> Result<&str, Error> {
     hashes
         .sha256
-        .as_ref()
-        .map(|s| s.as_str())
+        .as_deref()
         .ok_or_else(|| Error::validation("sha256 hash is required").at("hashes"))
 }
 
