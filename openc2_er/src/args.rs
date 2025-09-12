@@ -2,8 +2,14 @@ use openc2::{DomainName, Error, Ipv4Net, Ipv6Net, IsEmpty, target::Device};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
+/// Arguments specific to the Endpoint Response Actuator Profile.
+///
+/// # Notes
+/// This struct denies unknown fields during deserialization to ensure the consumer is aware of
+/// all producer-specified arguments.
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct Args {
     pub account_status: Option<AccountStatus>,
     pub device_containment: Option<DeviceContainment>,
