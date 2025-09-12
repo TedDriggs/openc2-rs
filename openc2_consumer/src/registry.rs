@@ -3,7 +3,8 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use async_trait::async_trait;
 use futures::future::join_all;
 use openc2::{
-    Action, ActionTargets, Error, Feature, Headers, Message, Nsid, StatusCode, TargetType, Version,
+    Action, ActionTargets, Error, Feature, Headers, Message, Nsid, ProfileFeatures, StatusCode,
+    TargetType, Value, Version,
     json::{Command, Response, Results, Target},
     target::Features,
 };
@@ -14,8 +15,7 @@ pub struct ConsumerToken(usize);
 
 pub struct Registration {
     consumer: Box<dyn Consume + Send + Sync>,
-    actions: HashSet<(Action, TargetType<'static>)>,
-    profiles: HashSet<Nsid>,
+    actions: HashMap<Option<Nsid>, ActionTargets>,
 }
 
 impl Registration {
@@ -23,42 +23,58 @@ impl Registration {
         Self {
             consumer: Box::new(consumer),
             actions: Default::default(),
-            profiles: Default::default(),
         }
     }
 
     pub fn with_actions(
         mut self,
-        actions: impl IntoIterator<Item = (Action, TargetType<'static>)>,
+        actions: impl IntoIterator<Item = (Nsid, Action, TargetType<'static>)>,
     ) -> Self {
-        self.actions = actions.into_iter().collect();
+        for (nsid, action, target) in actions {
+            self.actions
+                .entry(Some(nsid))
+                .or_default()
+                .entry(action)
+                .or_default()
+                .insert(target);
+        }
         self
     }
 
-    pub fn with_extended_actions(
+    pub fn with_actions_without_profile(
         mut self,
         actions: impl IntoIterator<Item = (Action, TargetType<'static>)>,
     ) -> Self {
-        self.actions.extend(actions);
-
+        for (action, target) in actions {
+            self.actions
+                .entry(None)
+                .or_default()
+                .entry(action)
+                .or_default()
+                .insert(target);
+        }
         self
     }
 
-    pub fn with_profile(mut self, profile: Nsid) -> Self {
-        self.profiles.clear();
-        self.profiles.insert(profile);
-        self
+    pub fn profiles(&self) -> impl Iterator<Item = &Nsid> {
+        self.actions.keys().flatten()
     }
 
-    pub fn with_profiles(mut self, profiles: impl IntoIterator<Item = Nsid>) -> Self {
-        self.profiles.clear();
-        self.profiles.extend(profiles);
-        self
+    fn to_pairs(&self) -> impl Iterator<Item = (Action, TargetType<'static>)> {
+        self.actions
+            .values()
+            .flatten()
+            .flat_map(|(a, t)| t.iter().cloned().map(move |target| (*a, target)))
     }
 
-    pub fn with_extended_profiles(mut self, profiles: impl IntoIterator<Item = Nsid>) -> Self {
-        self.profiles.extend(profiles);
-        self
+    pub fn matches(&self, action: Action, target: &TargetType, profile: &Nsid) -> bool {
+        let Some(entry) = self.actions.get(&Some(profile.clone())) else {
+            return false;
+        };
+        entry
+            .get(&action)
+            .map(|set| set.contains(target))
+            .unwrap_or(false)
     }
 
     pub fn query_features(&self, features: &Features) -> Result<Response, Error> {
@@ -70,7 +86,7 @@ impl Registration {
 
         let mut results = Results::default();
         if features.contains(&Feature::Profiles) {
-            results.profiles = self.profiles.iter().cloned().collect();
+            results.profiles = self.actions.keys().flatten().cloned().collect();
         }
 
         if features.contains(&Feature::Versions) {
@@ -78,13 +94,28 @@ impl Registration {
         }
 
         if features.contains(&Feature::Pairs) {
-            results.pairs = Some(self.actions.iter().cloned().fold(
+            results.pairs = Some(self.actions.values().cloned().fold(
                 ActionTargets::new(),
-                |mut acc, (a, t)| {
-                    acc.entry(a).or_default().insert(t);
+                |mut acc, at| {
+                    for (a, t) in &at {
+                        for target in t {
+                            acc.entry(*a).or_default().insert(target.clone());
+                        }
+                    }
                     acc
                 },
             ));
+
+            results.extensions = self
+                .actions
+                .iter()
+                .filter_map(|(k, v)| {
+                    Some((
+                        k.clone()?,
+                        Value::from_typed(&ProfileFeatures { pairs: v.clone() }).unwrap(),
+                    ))
+                })
+                .collect();
         }
 
         Ok(results.into())
@@ -117,8 +148,8 @@ impl Registry {
         let idx = self.consumers.len();
         let registration = registration.into();
 
-        for action in registration.actions.iter().cloned() {
-            self.by_pair.entry(action).or_default().insert(idx);
+        for pair in registration.to_pairs() {
+            self.by_pair.entry(pair).or_default().insert(idx);
         }
 
         self.consumers.push(Some(registration));
@@ -141,22 +172,22 @@ impl Registry {
     /// Unregister an OpenC2 consumer. This will not drop any in-progress requests.
     pub fn remove(&mut self, token: ConsumerToken) -> Option<Registration> {
         let entry = self.consumers.get_mut(token.0)?.take()?;
-        for pair in &entry.actions {
-            if let Some(set) = self.by_pair.get_mut(pair) {
+        for pair in entry.to_pairs() {
+            if let Some(set) = self.by_pair.get_mut(&pair) {
                 set.remove(&token.0);
                 if set.is_empty() {
-                    self.by_pair.remove(pair);
+                    self.by_pair.remove(&pair);
                 }
             }
         }
         Some(entry)
     }
 
-    pub fn profiles(&self) -> HashSet<Nsid> {
+    pub fn profiles(&self) -> HashSet<&Nsid> {
         self.consumers
             .iter()
             .filter_map(|c| c.as_ref())
-            .flat_map(|c| c.profiles.iter().cloned())
+            .flat_map(|c| c.profiles())
             .collect()
     }
 
@@ -181,9 +212,20 @@ impl FromIterator<Registration> for Registry {
 
 impl From<Registry> for Registration {
     fn from(value: Registry) -> Self {
+        let mut actions: HashMap<Option<Nsid>, ActionTargets> = HashMap::new();
+
+        for (profile, acts) in value.consumers.iter().flatten().flat_map(|c| &c.actions) {
+            let profile_entry = actions.entry(profile.clone()).or_default();
+            for (action, targets) in acts {
+                profile_entry
+                    .entry(*action)
+                    .or_default()
+                    .extend(targets.iter().cloned());
+            }
+        }
+
         Self {
-            actions: value.by_pair.keys().cloned().collect(),
-            profiles: value.profiles(),
+            actions,
             consumer: Box::new(value),
         }
     }
@@ -203,7 +245,7 @@ impl Consume for Registry {
 
             let mut results = Results::default();
             if features.contains(&Feature::Profiles) {
-                results.profiles = self.profiles().into_iter().collect();
+                results.profiles = self.profiles().into_iter().cloned().collect();
             }
 
             if features.contains(&Feature::Versions) {
@@ -212,6 +254,30 @@ impl Consume for Registry {
 
             if features.contains(&Feature::Pairs) {
                 results.pairs = Some(self.pairs());
+
+                let mut profiles: HashMap<_, ActionTargets> = HashMap::new();
+                for consumer in self.consumers.iter().flatten() {
+                    for (profile, actions) in &consumer.actions {
+                        let Some(profile) = profile else {
+                            continue;
+                        };
+                        let profile_entry = profiles.entry(profile.clone()).or_default();
+                        for (action, target) in actions {
+                            profile_entry
+                                .entry(*action)
+                                .or_default()
+                                .extend(target.clone());
+                        }
+                    }
+                }
+
+                results = results
+                    .with_extensions(
+                        profiles
+                            .into_iter()
+                            .map(|(ap, pairs)| (ap, ProfileFeatures { pairs })),
+                    )
+                    .unwrap();
             }
 
             return Ok(Response::new(StatusCode::Ok).with_results(results));
@@ -228,7 +294,7 @@ impl Consume for Registry {
         }
 
         if let Some(profile) = &msg.body.profile {
-            consumers.retain(|consumer| consumer.profiles.contains(profile));
+            consumers.retain(|consumer| consumer.matches(action, &target_type, profile));
         }
 
         if consumers.is_empty() {

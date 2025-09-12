@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::skip_serializing_none;
 
-use crate::{ActionTargets, Body, Content, Error, Extensions, IsEmpty, Nsid, Version};
+use crate::{ActionTargets, Body, Content, Error, Extensions, IsEmpty, Nsid, Value, Version};
 
 /// A message sent from an entity as the result of a command. Response
 /// messages provide acknowledgement, status, results from a query or other information as requested from
@@ -107,6 +107,20 @@ pub struct Results<V> {
     pub rate_limit: Option<u64>,
     #[serde(flatten, default, skip_serializing_if = "Extensions::is_empty")]
     pub extensions: Extensions<V>,
+}
+
+impl<V: Value> Results<V> {
+    /// Returns a new [`Results`] with the given extensions converted to `V`.
+    pub fn with_extensions<E: Serialize>(
+        mut self,
+        extensions: impl IntoIterator<Item = (Nsid, E)>,
+    ) -> Result<Self, V::Error> {
+        self.extensions = extensions
+            .into_iter()
+            .map(|(k, v)| Ok((k, V::from_typed(&v)?)))
+            .collect::<Result<_, _>>()?;
+        Ok(self)
+    }
 }
 
 impl<V> Default for Results<V> {
