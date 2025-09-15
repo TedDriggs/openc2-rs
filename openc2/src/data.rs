@@ -11,21 +11,20 @@ mod ipnet;
 mod mac_addr;
 mod nsid;
 pub mod primitive;
+mod time;
 mod value;
 mod version;
 
 pub use ipnet::{Ipv4Net, Ipv6Net};
 pub use mac_addr::{MacAddr, MacAddr6, MacAddr8};
 pub use nsid::Nsid;
+pub use time::{DateTime, Duration};
 pub use value::Value;
 pub use version::Version;
 
 pub type ActionTargets = IndexMap<Action, IndexSet<TargetType<'static>>>;
 
 pub type CommandId = String;
-
-/// Epoch milliseconds
-pub type DateTime = u64;
 
 #[derive(
     Debug, Clone, SerializeDisplay, DeserializeFromStr, PartialEq, Eq, PartialOrd, Ord, Hash,
@@ -62,38 +61,6 @@ impl FromStr for EmailAddr {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Self(s.to_string()))
-    }
-}
-
-#[derive(Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[serde(transparent)]
-pub struct Duration(u64);
-
-impl Duration {
-    pub fn from_millis(millis: u64) -> Self {
-        Self(millis)
-    }
-
-    pub fn from_secs(secs: u64) -> Self {
-        Self(secs.checked_mul(1000).expect("duration overflow"))
-    }
-
-    pub fn from_hours(hours: u64) -> Self {
-        Self(
-            hours
-                .checked_mul(60 * 60 * 1000)
-                .expect("duration overflow"),
-        )
-    }
-
-    pub fn as_millis(&self) -> u64 {
-        self.0
-    }
-}
-
-impl fmt::Debug for Duration {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}ms", self.0)
     }
 }
 
