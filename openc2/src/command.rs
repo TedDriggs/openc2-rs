@@ -113,25 +113,41 @@ pub enum Action {
     Locate,
     /// Initiate a request for information.
     Query,
-    /// Prevent a certain event or action from completion, such as preventing a flow from reaching a destination or preventing access.
+    /// Prevent a certain event or action from completion, such as preventing a flow
+    /// from reaching a destination or preventing access.
     Deny,
     /// Isolate a file, process, or entity so that it cannot modify or access assets or processes.
     Contain,
     /// Permit access to or execution of a Target.
     Allow,
+    /// Initiate a process, application, system, or activity.
     Start,
+    /// Halt a system or end an activity.
     Stop,
+    /// Stop then start a system or an activity.
     Restart,
+    /// Invalidate a previously issued Action.
     Cancel,
+    /// Change a value, configuration, or state of a managed entity.
     Set,
+    /// Instruct a component to retrieve, install, process, and operate in
+    /// accordance with a software update, reconfiguration, or other update.
     Update,
+    /// Change the flow of traffic to a destination other than its original destination.
     Redirect,
+    /// Add a new entity of a known type (e.g., data, files, directories).
     Create,
+    /// Remove an entity (e.g., data, files, flows).
     Delete,
+    /// Execute and observe the behavior of a Target (e.g., file, hyperlink) in an isolated environment.
     Detonate,
+    /// Return a system to a previously known state.
     Restore,
+    /// Duplicate an object, file, data flow, or artifact.
     Copy,
+    /// Task the recipient to aggregate and report information as it pertains to a security event or incident.
     Investigate,
+    /// Task the recipient to eliminate a vulnerability or attack point.
     Remediate,
 }
 
