@@ -26,11 +26,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut registry = Registry::default();
 
     let client = Arc::new(api::crowdstrike::Client::new("", "PLACEHOLDER"));
-    let contain = crowdstrike::EndpointResponse::new(client.clone());
+    // We can use Arc here so the same consumer can be cheaply shared among multiple registries.
+    let contain = Arc::new(crowdstrike::EndpointResponse::new(client.clone()));
+    // Don't use Arc here just to demonstrate that the registry can take ownership of any consumer.
     let detonate = crowdstrike::Sandbox::new(client.clone());
 
-    registry.insert(contain);
-    registry.insert(detonate);
+    registry.add(contain);
+    registry.add(detonate);
 
     match cli.command {
         Subcommand::QueryFeatures => {

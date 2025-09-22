@@ -13,17 +13,19 @@ use crate::Consume;
 
 pub struct ConsumerToken(usize);
 
-/// A registration of an OpenC2 consumer along with the action/target pairs it wishes to handle.
+/// A registration for an OpenC2 consumer, with the action/target pairs it wishes to handle.
+///
+/// The registration is the "key" in a [`Registry`], with a [`Consume`] implementer as the "value".
+/// The [`Registry`] handles indexing of registrations to efficiently route commands to the appropriate consumer.
+#[derive(Default, Clone)]
 pub struct Registration {
-    consumer: Box<dyn Consume + Send + Sync>,
     /// A map of the action targets this consumer wishes to handle, keyed by optional profile.
     actions: HashMap<Option<Nsid>, ActionTargets>,
 }
 
 impl Registration {
-    pub fn new(consumer: impl Consume + Send + Sync + 'static) -> Self {
+    pub fn new() -> Self {
         Self {
-            consumer: Box::new(consumer),
             actions: Default::default(),
         }
     }
@@ -127,29 +129,75 @@ impl Registration {
     }
 }
 
-#[async_trait]
-impl Consume for Registration {
-    async fn consume(&self, msg: Message<Headers, Command>) -> Result<Response, Error> {
-        if let (Action::Query, Target::Features(features)) = msg.body.as_action_target() {
-            return self.query_features(features);
-        }
+/// Trait for producing a registration, typically from a [consumer](Consume).
+pub trait ToRegistration {
+    /// Returns a registration for `self`.
+    fn to_registration(&self) -> Registration;
+}
 
-        self.consumer.consume(msg).await
+impl<T: ToRegistration> ToRegistration for Box<T> {
+    fn to_registration(&self) -> Registration {
+        (**self).to_registration()
     }
 }
+
+impl<T: ToRegistration> ToRegistration for std::sync::Arc<T> {
+    fn to_registration(&self) -> Registration {
+        (**self).to_registration()
+    }
+}
+
+struct RegEntry<T> {
+    registration: Registration,
+    value: T,
+}
+
+#[async_trait]
+impl Consume for RegEntry<Box<dyn Consume + Send + Sync>> {
+    async fn consume(&self, msg: Message<Headers, Command>) -> Result<Response, Error> {
+        if let (Action::Query, Target::Features(features)) = msg.body.as_action_target() {
+            return self.registration.query_features(features);
+        }
+        self.value.consume(msg).await
+    }
+}
+
+#[async_trait]
+impl<T: Consume + Send + Sync> Consume for RegEntry<T> {
+    async fn consume(&self, msg: Message<Headers, Command>) -> Result<Response, Error> {
+        if let (Action::Query, Target::Features(features)) = msg.body.as_action_target() {
+            return self.registration.query_features(features);
+        }
+        self.value.consume(msg).await
+    }
+}
+
+type RegistryEntry = RegEntry<Box<dyn Consume + Send + Sync>>;
 
 /// An OpenC2 consumer made up of more specific consumers.
 #[derive(Default)]
 pub struct Registry {
-    consumers: Vec<Option<Registration>>,
+    consumers: Vec<Option<RegistryEntry>>,
     by_pair: HashMap<(Action, TargetType<'static>), BTreeSet<usize>>,
 }
 
 impl Registry {
+    /// Register an OpenC2 consumer that also provides its own registration.
+    pub fn add(
+        &mut self,
+        other: impl ToRegistration + Consume + Send + Sync + 'static,
+    ) -> ConsumerToken {
+        self.insert(other.to_registration(), other)
+    }
+
     /// Register an OpenC2 consumer.
     ///
     /// Returns a token that can be used to unregister the consumer.
-    pub fn insert(&mut self, registration: impl Into<Registration>) -> ConsumerToken {
+    pub fn insert(
+        &mut self,
+        registration: impl Into<Registration>,
+        consumer: impl Consume + Send + Sync + 'static,
+    ) -> ConsumerToken {
         let idx = self.consumers.len();
         let registration = registration.into();
 
@@ -157,7 +205,10 @@ impl Registry {
             self.by_pair.entry(pair).or_default().insert(idx);
         }
 
-        self.consumers.push(Some(registration));
+        self.consumers.push(Some(RegistryEntry {
+            registration,
+            value: Box::new(consumer),
+        }));
 
         ConsumerToken(idx)
     }
@@ -165,7 +216,7 @@ impl Registry {
     fn get_matching<'a>(
         &'a self,
         pair: &(Action, TargetType<'a>),
-    ) -> impl Iterator<Item = &'a Registration> + use<'a> {
+    ) -> impl Iterator<Item = &'a RegistryEntry> + use<'a> {
         let entry = self.by_pair.get(pair);
         entry.into_iter().flat_map(move |indices| {
             indices
@@ -175,9 +226,12 @@ impl Registry {
     }
 
     /// Unregister an OpenC2 consumer. This will not drop any in-progress requests.
-    pub fn remove(&mut self, token: ConsumerToken) -> Option<Registration> {
+    pub fn remove(
+        &mut self,
+        token: ConsumerToken,
+    ) -> Option<(Registration, Box<dyn Consume + Send + Sync>)> {
         let entry = self.consumers.get_mut(token.0)?.take()?;
-        for pair in entry.to_pairs() {
+        for pair in entry.registration.to_pairs() {
             if let Some(set) = self.by_pair.get_mut(&pair) {
                 set.remove(&token.0);
                 if set.is_empty() {
@@ -185,14 +239,14 @@ impl Registry {
                 }
             }
         }
-        Some(entry)
+        Some((entry.registration, entry.value))
     }
 
     pub fn profiles(&self) -> HashSet<&Nsid> {
         self.consumers
             .iter()
             .filter_map(|c| c.as_ref())
-            .flat_map(|c| c.profiles())
+            .flat_map(|c| c.registration.profiles())
             .collect()
     }
 
@@ -205,21 +259,26 @@ impl Registry {
     }
 }
 
-impl FromIterator<Registration> for Registry {
-    fn from_iter<T: IntoIterator<Item = Registration>>(iter: T) -> Self {
+impl<T: Consume + Send + Sync + ToRegistration + 'static> FromIterator<T> for Registry {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut registry = Self::default();
-        for registration in iter {
-            registry.insert(registration);
+        for item in iter {
+            registry.insert(item.to_registration(), item);
         }
         registry
     }
 }
 
-impl From<Registry> for Registration {
-    fn from(value: Registry) -> Self {
+impl ToRegistration for Registry {
+    fn to_registration(&self) -> Registration {
         let mut actions: HashMap<Option<Nsid>, ActionTargets> = HashMap::new();
 
-        for (profile, acts) in value.consumers.iter().flatten().flat_map(|c| &c.actions) {
+        for (profile, acts) in self
+            .consumers
+            .iter()
+            .flatten()
+            .flat_map(|c| &c.registration.actions)
+        {
             let profile_entry = actions.entry(profile.clone()).or_default();
             for (action, targets) in acts {
                 profile_entry
@@ -229,10 +288,7 @@ impl From<Registry> for Registration {
             }
         }
 
-        Self {
-            actions,
-            consumer: Box::new(value),
-        }
+        Registration { actions }
     }
 }
 
@@ -262,7 +318,7 @@ impl Consume for Registry {
 
                 let mut profiles: HashMap<_, ActionTargets> = HashMap::new();
                 for consumer in self.consumers.iter().flatten() {
-                    for (profile, actions) in &consumer.actions {
+                    for (profile, actions) in &consumer.registration.actions {
                         let Some(profile) = profile else {
                             continue;
                         };
@@ -301,7 +357,8 @@ impl Consume for Registry {
         }
 
         if let Some(profile) = &msg.body.profile {
-            consumers.retain(|consumer| consumer.matches(action, &target_type, profile));
+            consumers
+                .retain(|consumer| consumer.registration.matches(action, &target_type, profile));
         }
 
         if consumers.is_empty() {

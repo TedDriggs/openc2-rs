@@ -11,7 +11,7 @@ use openc2::{
 use openc2_er::DeviceContainment;
 use reqwest::Url;
 
-use openc2_consumer::{Consume, Registration};
+use openc2_consumer::{Consume, Registration, ToRegistration};
 
 use crate::api::crowdstrike::{Aid, Client};
 
@@ -40,9 +40,9 @@ impl EndpointResponse {
 
 /// Returns a registration that specifies the [`er`](Nsid::ER) profile
 /// and registers all the supported actions.
-impl From<EndpointResponse> for Registration {
-    fn from(actuator: EndpointResponse) -> Self {
-        Registration::new(actuator).with_actions([
+impl ToRegistration for EndpointResponse {
+    fn to_registration(&self) -> Registration {
+        Registration::new().with_actions([
             (Nsid::ER, Action::Contain, TargetType::Device),
             (Nsid::ER, Action::Restart, TargetType::Device),
             (Nsid::ER, Action::Stop, TargetType::Process),
@@ -264,9 +264,9 @@ impl Profile for Sandbox {
     }
 }
 
-impl From<Sandbox> for Registration {
-    fn from(actuator: Sandbox) -> Self {
-        Registration::new(actuator).with_actions([
+impl ToRegistration for Sandbox {
+    fn to_registration(&self) -> Registration {
+        Registration::new().with_actions([
             (SANDBOX, Action::Detonate, TargetType::Uri),
             (SANDBOX, Action::Detonate, TargetType::Artifact),
             (SANDBOX, Action::Scan, TargetType::Artifact),

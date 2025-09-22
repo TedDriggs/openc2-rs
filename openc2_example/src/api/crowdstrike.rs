@@ -91,6 +91,7 @@ impl Client {
 }
 
 impl Client {
+    #[allow(dead_code)]
     pub async fn get_device_group_members(
         &self,
         group_id: &str,
