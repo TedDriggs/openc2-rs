@@ -13,6 +13,7 @@ use crate::error::{PathSegment, ValidationError};
 pub struct Nsid(Cow<'static, str>);
 
 impl Nsid {
+    pub const PF: Self = Nsid(Cow::Borrowed("pf"));
     pub const SLPF: Self = Nsid(Cow::Borrowed("slpf"));
     pub const SFPF: Self = Nsid(Cow::Borrowed("sfpf"));
     pub const ER: Self = Nsid(Cow::Borrowed("er"));
@@ -60,6 +61,7 @@ impl FromStr for Nsid {
 
         // For known profiles, reuse the const to avoid heap allocations
         match s {
+            "pf" => Ok(Self::PF),
             "slpf" => Ok(Self::SLPF),
             "sfpf" => Ok(Self::SFPF),
             "er" => Ok(Self::ER),
