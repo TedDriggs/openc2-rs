@@ -262,6 +262,26 @@ impl Registry {
     }
 }
 
+impl FromIterator<(Registration, BoxConsumer)> for Registry {
+    fn from_iter<T: IntoIterator<Item = (Registration, BoxConsumer)>>(iter: T) -> Self {
+        let mut registry = Self::default();
+        for (registration, consumer) in iter {
+            registry.insert_boxed(registration, consumer);
+        }
+        registry
+    }
+}
+
+impl<I: Consume + Send + Sync + 'static> FromIterator<(Registration, I)> for Registry {
+    fn from_iter<T: IntoIterator<Item = (Registration, I)>>(iter: T) -> Self {
+        let mut registry = Self::default();
+        for (registration, item) in iter {
+            registry.insert_boxed(registration, Box::new(item));
+        }
+        registry
+    }
+}
+
 impl<T: Consume + Send + Sync + ToRegistration + 'static> FromIterator<T> for Registry {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut registry = Self::default();
