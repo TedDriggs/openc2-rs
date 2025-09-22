@@ -6,6 +6,7 @@ authors = ["Ted Driggs <t.driggs@outlook.com>"]
 license = "MIT"
 repository = "https://github.com/TedDriggs/openc2-rs"
 description = "Rust types for OpenC2 consumers"
+rust-version = "1.89.0"
 
 [dependencies]
 async-trait = "0.1.89"

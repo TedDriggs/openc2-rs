@@ -3,6 +3,7 @@ name = "openc2_example"
 version = "0.1.0"
 edition = "2024"
 publish = false
+description = "Example OpenC2 consumer"
 
 [dependencies]
 async-trait = "0.1.89"

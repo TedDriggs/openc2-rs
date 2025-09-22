@@ -2,6 +2,11 @@
 name = "openc2_er"
 version = "0.1.0"
 edition = "2024"
+authors = ["Ted Driggs <t.driggs@outlook.com>"]
+license = "MIT"
+repository = "https://github.com/TedDriggs/openc2-rs"
+description = "OpenC2 Endpoint Response actuator profile"
+rust-version = "1.89.0"
 
 [dependencies]
 from_variants = "1.0.2"

@@ -6,6 +6,7 @@ authors = ["Ted Driggs <t.driggs@outlook.com>"]
 license = "MIT"
 repository = "https://github.com/TedDriggs/openc2-rs"
 description = "Rust types for OpenC2 commands and responses"
+rust-version = "1.89.0"
 
 [dependencies]
 serde = { version = "1.0.219", features = ["derive"] }
