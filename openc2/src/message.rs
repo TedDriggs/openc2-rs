@@ -11,7 +11,6 @@ use crate::{
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct Headers {
     pub request_id: Option<CommandId>,
     pub created: Option<DateTime>,
@@ -134,6 +133,18 @@ where
 impl<H, B> Message<H, B> {
     /// The value for [`Message::content_type`] for v1 and v2 of the OpenC2 specification.
     pub const CONTENT_TYPE: &str = "application/openc2";
+}
+
+impl<H, B> Message<H, B> {
+    /// Create a new message with the given headers and body.
+    pub fn new(headers: H, body: B) -> Self {
+        Self {
+            headers,
+            content_type: Cow::Borrowed(Self::CONTENT_TYPE),
+            body,
+            status_code: None,
+        }
+    }
 }
 
 impl<V> Message<Headers, Body<Content<V>>> {
