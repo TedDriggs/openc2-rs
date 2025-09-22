@@ -34,6 +34,10 @@ impl Error {
         }
     }
 
+    pub fn not_found(message: impl Display) -> Self {
+        NotFoundError::new(message).into()
+    }
+
     pub fn validation(message: impl Display) -> Self {
         ValidationError::new(message.to_string()).into()
     }
@@ -386,6 +390,28 @@ impl From<NotImplementedError> for Error {
     }
 }
 
+impl From<NotFoundError> for Error {
+    fn from(err: NotFoundError) -> Self {
+        Self {
+            kind: ErrorKind::NotFound(err),
+        }
+    }
+}
+
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("{message}")]
+struct NotFoundError {
+    message: String,
+}
+
+impl NotFoundError {
+    pub fn new(message: impl Display) -> Self {
+        Self {
+            message: message.to_string(),
+        }
+    }
+}
+
 #[cfg(feature = "json")]
 impl From<serde_json::Error> for Error {
     fn from(err: serde_json::Error) -> Self {
@@ -412,6 +438,8 @@ enum ErrorKind {
     #[error("{0}")]
     NotImplemented(NotImplementedError),
     #[error("{0}")]
+    NotFound(NotFoundError),
+    #[error("{0}")]
     Custom(String),
     #[cfg(feature = "json")]
     #[error("JSON error: {0}")]
@@ -428,6 +456,7 @@ impl<V> From<Error> for Response<V> {
         match value.kind {
             ErrorKind::Validation(e) => e.into(),
             ErrorKind::NotImplemented(e) => e.into(),
+            ErrorKind::NotFound(e) => e.into(),
             ErrorKind::Custom(e) => Self::new(StatusCode::InternalError).with_status_text(e),
             #[cfg(feature = "json")]
             ErrorKind::Json(e) => Self::new(StatusCode::InternalError).with_status_text(e),
@@ -451,5 +480,11 @@ impl<V> From<ValidationError> for Response<V> {
 impl<V> From<NotImplementedError> for Response<V> {
     fn from(value: NotImplementedError) -> Self {
         Self::new(StatusCode::NotImplemented).with_status_text(value.to_string())
+    }
+}
+
+impl<V> From<NotFoundError> for Response<V> {
+    fn from(value: NotFoundError) -> Self {
+        Self::new(StatusCode::NotFound).with_status_text(value.to_string())
     }
 }
