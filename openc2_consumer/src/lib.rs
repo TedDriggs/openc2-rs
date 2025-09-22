@@ -6,7 +6,7 @@ use openc2::{
 
 mod registry;
 
-pub use registry::{Registration, Registry, ToRegistration};
+pub use registry::{BoxConsumer, Registration, Registry, ToRegistration};
 
 /// Consumer trait for handling OpenC2 messages.
 #[async_trait]

@@ -172,9 +172,12 @@ impl<T: Consume + Send + Sync> Consume for RegEntry<T> {
     }
 }
 
-type RegistryEntry = RegEntry<Box<dyn Consume + Send + Sync>>;
+/// An async-friendly boxed [`Consume`] trait object.
+pub type BoxConsumer = Box<dyn Consume + Send + Sync>;
 
-/// An OpenC2 consumer made up of more specific consumers.
+type RegistryEntry = RegEntry<BoxConsumer>;
+
+/// An OpenC2 consumer made up of more specific consumers that share a single `to` address.
 #[derive(Default)]
 pub struct Registry {
     consumers: Vec<Option<RegistryEntry>>,
@@ -198,8 +201,11 @@ impl Registry {
         registration: impl Into<Registration>,
         consumer: impl Consume + Send + Sync + 'static,
     ) -> ConsumerToken {
+        self.insert_boxed(registration.into(), Box::new(consumer))
+    }
+
+    fn insert_boxed(&mut self, registration: Registration, consumer: BoxConsumer) -> ConsumerToken {
         let idx = self.consumers.len();
-        let registration = registration.into();
 
         for pair in registration.to_pairs() {
             self.by_pair.entry(pair).or_default().insert(idx);
@@ -207,7 +213,7 @@ impl Registry {
 
         self.consumers.push(Some(RegistryEntry {
             registration,
-            value: Box::new(consumer),
+            value: consumer,
         }));
 
         ConsumerToken(idx)
@@ -226,10 +232,7 @@ impl Registry {
     }
 
     /// Unregister an OpenC2 consumer. This will not drop any in-progress requests.
-    pub fn remove(
-        &mut self,
-        token: ConsumerToken,
-    ) -> Option<(Registration, Box<dyn Consume + Send + Sync>)> {
+    pub fn remove(&mut self, token: ConsumerToken) -> Option<(Registration, BoxConsumer)> {
         let entry = self.consumers.get_mut(token.0)?.take()?;
         for pair in entry.registration.to_pairs() {
             if let Some(set) = self.by_pair.get_mut(&pair) {
@@ -289,6 +292,28 @@ impl ToRegistration for Registry {
         }
 
         Registration { actions }
+    }
+}
+
+impl Extend<(Registration, BoxConsumer)> for Registry {
+    fn extend<T: IntoIterator<Item = (Registration, BoxConsumer)>>(&mut self, iter: T) {
+        for (registration, consumer) in iter {
+            self.insert_boxed(registration, consumer);
+        }
+    }
+}
+
+impl IntoIterator for Registry {
+    type Item = (Registration, BoxConsumer);
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.consumers
+            .into_iter()
+            .flatten()
+            .map(|entry| (entry.registration, entry.value))
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 }
 
