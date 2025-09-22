@@ -1,0 +1,17 @@
+[package]
+name = "openc2_pf"
+version = "0.1.0"
+edition = "2024"
+authors = ["Ted Driggs <t.driggs@outlook.com>"]
+license = "MIT"
+repository = "https://github.com/TedDriggs/openc2-rs"
+description = "OpenC2 Packet Filtering actuator profile"
+rust-version = "1.89.0"
+
+[dependencies]
+from_variants = "1.0.2"
+indexmap = { version = "2.11.0", features = ["serde"] }
+openc2 = { version = "=0.1.0", path = "../openc2" }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_with = "3.14.0"
+strum = { version = "0.27.2", features = ["derive"] }

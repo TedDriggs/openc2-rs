@@ -1,3 +1,3 @@
 [workspace]
-members = ["openc2", "openc2_consumer", "openc2_er", "openc2_example"]
+members = ["openc2", "openc2_consumer", "openc2_er", "openc2_example", "openc2_pf"]
 resolver = "3"
