@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use openc2::{
-    Error, Headers, Message,
-    json::{Command, Response},
+    Error, Message,
+    json::{Command, Headers, Response},
 };
 
 mod registry;

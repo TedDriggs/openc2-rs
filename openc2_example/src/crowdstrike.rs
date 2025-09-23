@@ -3,9 +3,8 @@ use std::{str::FromStr, sync::Arc};
 use async_trait::async_trait;
 use futures::future::join_all;
 use openc2::{
-    Action, Error, ErrorAt, Hashes, Headers, Message, Nsid, Payload, Profile, StatusCode,
-    TargetType,
-    json::{Command, Response, Target},
+    Action, Error, ErrorAt, Hashes, Message, Nsid, Payload, Profile, StatusCode, TargetType,
+    json::{Command, Headers, Response, Target},
     target,
 };
 use openc2_er::DeviceContainment;

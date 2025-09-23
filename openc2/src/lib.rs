@@ -9,6 +9,7 @@
 mod command;
 mod data;
 mod error;
+pub mod header;
 mod message;
 mod notification;
 mod profile;
@@ -27,8 +28,10 @@ pub use command::{Action, Args, Command};
 #[doc(inline)]
 pub use data::*;
 
+pub use header::Headers;
+
 #[doc(inline)]
-pub use message::{AsBody, AsContent, Body, Content, Headers, Message};
+pub use message::{AsBody, AsContent, Body, Content, Message};
 
 pub use notification::Notification;
 
@@ -48,7 +51,8 @@ pub mod json {
     pub type Args = super::Args<Value>;
     pub type Body = super::Body<Content>;
     pub type Content = super::Content<Value>;
-    pub type Message = super::Message<super::Headers, Body>;
+    pub type Headers = super::Headers<Value>;
+    pub type Message = super::Message<Headers, Body>;
     pub type Command = super::Command<Value>;
     pub type Response = super::Response<Value>;
     pub type Extensions = super::Extensions<Value>;
@@ -64,6 +68,7 @@ pub mod cbor {
     pub type Args = super::Args<Value>;
     pub type Body = super::Body<Content>;
     pub type Content = super::Content<Value>;
+    pub type Headers = super::Headers<Value>;
     pub type Message = super::Message<Headers, Body>;
     pub type Command = super::Command<Value>;
     pub type Response = super::Response<Value>;

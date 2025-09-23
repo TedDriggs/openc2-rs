@@ -3,9 +3,9 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use async_trait::async_trait;
 use futures::future::join_all;
 use openc2::{
-    Action, ActionTargets, Error, Feature, Headers, Message, Nsid, ProfileFeatures, StatusCode,
-    TargetType, Value, Version,
-    json::{Command, Response, Results, Target},
+    Action, ActionTargets, Error, Feature, Message, Nsid, ProfileFeatures, StatusCode, TargetType,
+    Value, Version,
+    json::{Command, Headers, Response, Results, Target},
     target::Features,
 };
 

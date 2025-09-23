@@ -5,28 +5,9 @@ use serde::{Deserialize, Serialize, Serializer};
 use serde_with::skip_serializing_none;
 
 use crate::{
-    Check, Command, CommandId, DateTime, Error, IsEmpty, Notification, Response,
-    error::ValidationError, response::StatusCode,
+    Check, Command, CommandId, Error, Headers, IsEmpty, Notification, Response, Value,
+    error::ValidationError, header::REQUEST_ID, response::StatusCode,
 };
-
-#[skip_serializing_none]
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Headers {
-    pub request_id: Option<CommandId>,
-    pub created: Option<DateTime>,
-    pub from: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub to: Vec<String>,
-}
-
-impl IsEmpty for Headers {
-    fn is_empty(&self) -> bool {
-        self.request_id.is_none()
-            && self.created.is_none()
-            && self.from.is_none()
-            && self.to.is_empty()
-    }
-}
 
 /// The body of an OpenC2 message.
 ///
@@ -147,14 +128,21 @@ impl<H, B> Message<H, B> {
     }
 }
 
-impl<V> Message<Headers, Body<Content<V>>> {
-    pub fn command_id(&self) -> Option<&CommandId> {
+impl<V: Value> Message<Headers<V>, Body<Content<V>>> {
+    pub fn command_id(&self) -> Option<Cow<'_, CommandId>> {
         let Body::OpenC2(body) = &self.body;
         match body {
             // Per Spec:
             // A Consumer receiving a Command with command_id absent and request_id present in the
             // header of the Message MUST use the value of request_id as the command_id.
-            Content::Request(cmd) => cmd.command_id.as_ref().or(self.headers.request_id.as_ref()),
+            Content::Request(cmd) => cmd.command_id.as_ref().map(Cow::Borrowed).or_else(|| {
+                self.headers
+                    .try_get::<CommandId>(REQUEST_ID)
+                    .transpose()
+                    .ok()
+                    .flatten()
+                    .map(Cow::Owned)
+            }),
             Content::Response(_) => None,
             Content::Notification(_) => None,
         }
@@ -209,7 +197,7 @@ impl<H: Default, V> From<Content<V>> for Message<H, Body<Content<V>>> {
     }
 }
 
-impl<V> Check for Message<Headers, Body<Content<V>>> {
+impl<V> Check for Message<Headers<V>, Body<Content<V>>> {
     fn check(&self) -> Result<(), Error> {
         let mut acc = Error::accumulator();
 
@@ -219,7 +207,7 @@ impl<V> Check for Message<Headers, Body<Content<V>>> {
                 acc.handle(cmd.args.check());
                 if let Some(rsp) = cmd.args.response_requested
                     && rsp.requires_request_id()
-                    && self.headers.request_id.is_none()
+                    && !self.headers.contains(REQUEST_ID)
                 {
                     acc.push(ValidationError::missing_required_field("request_id").at("headers"));
                 }
@@ -334,7 +322,7 @@ mod tests {
 
     #[test]
     fn deserialize_through_body() {
-        let message: crate::Message<crate::Headers, Content<serde_json::Value>> =
+        let message: crate::Message<crate::json::Headers, crate::json::Content> =
             from_value(json!(
                 {
                     "headers": {
@@ -369,7 +357,7 @@ mod tests {
 
     #[test]
     fn round_trip_command_through_body() {
-        let message: crate::Message<crate::Headers, crate::Command<serde_json::Value>> =
+        let message: crate::Message<crate::json::Headers, crate::json::Command> =
             from_value(json!(
                 {
                     "headers": {
