@@ -1,57 +1,81 @@
-use async_trait::async_trait;
+use std::borrow::Cow;
+
+use futures::stream::BoxStream;
 use openc2::{
     Error, Message,
     json::{Command, Headers, Response},
 };
 
 mod registry;
+pub mod util;
 
 pub use registry::{BoxConsumer, Registration, Registry, ToRegistration};
 
+use crate::util::stream_just;
+
 /// Consumer trait for handling OpenC2 messages.
-#[async_trait]
 pub trait Consume {
-    /// Handle an incoming OpenC2 command and produce a response.
-    async fn consume(&self, msg: Message<Headers, Command>) -> Result<Response, Error>;
+    /// Handle an incoming OpenC2 command and produce a response stream.
+    fn consume<'a>(
+        &'a self,
+        msg: Message<Headers, Command>,
+    ) -> BoxStream<'a, Result<Response, Error>>;
 }
 
-#[async_trait]
 impl<T: Consume + Sync + Send> Consume for Box<T> {
-    async fn consume(&self, msg: Message<Headers, Command>) -> Result<Response, Error> {
-        (**self).consume(msg).await
+    fn consume<'a>(
+        &'a self,
+        msg: Message<Headers, Command>,
+    ) -> BoxStream<'a, Result<Response, Error>> {
+        (**self).consume(msg)
     }
 }
 
-#[async_trait]
 impl<T: Consume + Sync + Send> Consume for std::sync::Arc<T> {
-    async fn consume(&self, msg: Message<Headers, Command>) -> Result<Response, Error> {
-        (**self).consume(msg).await
+    fn consume<'a>(
+        &'a self,
+        msg: Message<Headers, Command>,
+    ) -> BoxStream<'a, Result<Response, Error>> {
+        (**self).consume(msg)
     }
 }
 
-#[async_trait]
-impl<'a, T: Consume + Sync + Send + Clone> Consume for std::borrow::Cow<'a, T> {
-    async fn consume(&self, msg: Message<Headers, Command>) -> Result<Response, Error> {
-        (**self).consume(msg).await
-    }
-}
-
-#[async_trait]
-impl<T: Consume + Sync + Send> Consume for Option<T> {
-    async fn consume(&self, msg: Message<Headers, Command>) -> Result<Response, Error> {
+impl<'b, T> Consume for Cow<'b, T>
+where
+    T: Consume + ToOwned + ?Sized,
+    T::Owned: Consume + Sync + Send,
+{
+    fn consume<'a>(
+        &'a self,
+        msg: Message<Headers, Command>,
+    ) -> BoxStream<'a, Result<Response, Error>> {
         match self {
-            Some(consumer) => consumer.consume(msg).await,
-            None => Err(Error::custom("no consumer available")),
+            Cow::Borrowed(t) => t.consume(msg),
+            Cow::Owned(t) => t.consume(msg),
         }
     }
 }
 
-#[async_trait]
-impl<T: Consume + Sync + Send> Consume for Result<T, Error> {
-    async fn consume(&self, msg: Message<Headers, Command>) -> Result<Response, Error> {
+impl<T: Consume + Sync + Send> Consume for Option<T> {
+    fn consume<'a>(
+        &'a self,
+        msg: Message<Headers, Command>,
+    ) -> BoxStream<'a, Result<Response, Error>> {
         match self {
-            Ok(consumer) => consumer.consume(msg).await,
-            Err(e) => Err(e.clone()),
+            Some(consumer) => consumer.consume(msg),
+            None => stream_just(Err(Error::custom("no consumer available"))),
+        }
+    }
+}
+
+impl<T: Consume + Sync + Send> Consume for Result<T, Error> {
+    fn consume<'a>(
+        &'a self,
+        msg: Message<Headers, Command>,
+    ) -> BoxStream<'a, Result<Response, Error>> {
+        match self {
+            Ok(consumer) => consumer.consume(msg),
+            Err(e) => stream_just(Err(e.clone())),
         }
     }
 }

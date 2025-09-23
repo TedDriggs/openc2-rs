@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use clap::Parser;
+use futures::stream::StreamExt;
 use openc2::{Action, Feature, json::Command};
 use openc2_consumer::{Consume, Registry};
 
@@ -44,7 +45,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .into(),
                 )
-                .await?;
+                .next()
+                .await
+                .transpose()?
+                .expect("stream yields at least one response");
+
             println!("{}", serde_json::to_string_pretty(&rsp)?);
         }
     }

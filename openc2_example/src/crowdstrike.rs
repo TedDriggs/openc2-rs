@@ -1,7 +1,10 @@
 use std::{str::FromStr, sync::Arc};
 
-use async_trait::async_trait;
-use futures::future::join_all;
+use futures::{
+    StreamExt,
+    future::join_all,
+    stream::{self, BoxStream},
+};
 use openc2::{
     Action, Error, ErrorAt, Hashes, Message, Nsid, Payload, Profile, StatusCode, TargetType,
     json::{Command, Headers, Response, Target},
@@ -35,24 +38,8 @@ impl EndpointResponse {
     pub async fn stop_process(&self, device: &Aid, pid: u32) -> Result<Response, Error> {
         todo!()
     }
-}
 
-/// Returns a registration that specifies the [`er`](Nsid::ER) profile
-/// and registers all the supported actions.
-impl ToRegistration for EndpointResponse {
-    fn to_registration(&self) -> Registration {
-        Registration::new().with_actions([
-            (Nsid::ER, Action::Contain, TargetType::Device),
-            (Nsid::ER, Action::Restart, TargetType::Device),
-            (Nsid::ER, Action::Stop, TargetType::Process),
-            (Nsid::ER, Action::Deny, TargetType::File),
-        ])
-    }
-}
-
-#[async_trait]
-impl Consume for EndpointResponse {
-    async fn consume(&self, msg: Message<Headers, Command>) -> Result<Response, Error> {
+    async fn consume_msg(&self, msg: Message<Headers, Command>) -> Result<Response, Error> {
         let Command { args, profile, .. } = &msg.body;
 
         match msg.body.as_action_target() {
@@ -205,6 +192,28 @@ impl Consume for EndpointResponse {
     }
 }
 
+/// Returns a registration that specifies the [`er`](Nsid::ER) profile
+/// and registers all the supported actions.
+impl ToRegistration for EndpointResponse {
+    fn to_registration(&self) -> Registration {
+        Registration::new().with_actions([
+            (Nsid::ER, Action::Contain, TargetType::Device),
+            (Nsid::ER, Action::Restart, TargetType::Device),
+            (Nsid::ER, Action::Stop, TargetType::Process),
+            (Nsid::ER, Action::Deny, TargetType::File),
+        ])
+    }
+}
+
+impl Consume for EndpointResponse {
+    fn consume<'a>(
+        &'a self,
+        msg: Message<Headers, Command>,
+    ) -> BoxStream<'a, Result<Response, Error>> {
+        stream::once(self.consume_msg(msg)).boxed()
+    }
+}
+
 const SANDBOX: Nsid = Nsid::new_const("sandbox");
 const SANDBOX_REF: &Nsid = &SANDBOX;
 
@@ -255,6 +264,16 @@ impl Sandbox {
 
         Err(missing_sha256_and_payload())
     }
+
+    async fn consume_msg(&self, msg: Message<Headers, Command>) -> Result<Response, Error> {
+        use openc2::{Action::*, Target::*};
+        match msg.body.as_action_target() {
+            (Detonate, Uri(url)) => self.detonate_uri(url).await,
+            (Detonate, Artifact(artifact)) => self.detonate_artifact(artifact).await,
+            (Scan, Artifact(artifact)) => self.scan_artifact(artifact).await,
+            (action, target) => Err(Error::not_implemented_pair(action, &target.into())),
+        }
+    }
 }
 
 impl Profile for Sandbox {
@@ -273,16 +292,12 @@ impl ToRegistration for Sandbox {
     }
 }
 
-#[async_trait]
 impl Consume for Sandbox {
-    async fn consume(&self, msg: Message<Headers, Command>) -> Result<Response, Error> {
-        use openc2::{Action::*, Target::*};
-        match msg.body.as_action_target() {
-            (Detonate, Uri(url)) => self.detonate_uri(url).await,
-            (Detonate, Artifact(artifact)) => self.detonate_artifact(artifact).await,
-            (Scan, Artifact(artifact)) => self.scan_artifact(artifact).await,
-            (action, target) => Err(Error::not_implemented_pair(action, &target.into())),
-        }
+    fn consume<'a>(
+        &'a self,
+        msg: Message<Headers, Command>,
+    ) -> BoxStream<'a, Result<Response, Error>> {
+        stream::once(self.consume_msg(msg)).boxed()
     }
 }
 
