@@ -1,6 +1,6 @@
 use crate::{
     Body, Check, CommandId, Content, DateTime, Duration, Error, Extensions, IsEmpty, Nsid,
-    ResponseType, Target,
+    ResponseType, Target, Value,
 };
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -31,6 +31,21 @@ impl<V> Command<V> {
             profile: None,
             command_id: None,
         }
+    }
+
+    pub fn with_args(mut self, args: Args<V>) -> Self {
+        self.args = args;
+        self
+    }
+
+    pub fn with_profile(mut self, profile: impl Into<Nsid>) -> Self {
+        self.profile = Some(profile.into());
+        self
+    }
+
+    pub fn with_command_id(mut self, command_id: impl Into<CommandId>) -> Self {
+        self.command_id = Some(command_id.into());
+        self
     }
 
     /// Returns the action and target of the command as a tuple.
@@ -214,11 +229,20 @@ pub struct Args<V> {
 }
 
 impl<V> Args<V> {
-    pub fn is_empty(&self) -> bool {
-        self.period.is_empty()
-            && self.response_requested.is_none()
-            && self.comment.is_none()
-            && self.extensions.is_empty()
+    pub fn insert(&mut self, key: Nsid, value: V) {
+        self.extensions.insert(key, value);
+    }
+}
+
+impl<V: Value> Args<V> {
+    pub fn try_with_extension(key: Nsid, value: &impl Serialize) -> Result<Self, V::Error> {
+        let mut new = Self::default();
+        new.try_insert(key, value)?;
+        Ok(new)
+    }
+
+    pub fn try_insert(&mut self, key: Nsid, value: &impl Serialize) -> Result<Option<V>, V::Error> {
+        Ok(self.extensions.insert(key, V::from_typed(value)?))
     }
 }
 
@@ -239,6 +263,15 @@ impl<V> Default for Args<V> {
             comment: None,
             extensions: Extensions::default(),
         }
+    }
+}
+
+impl<V> IsEmpty for Args<V> {
+    fn is_empty(&self) -> bool {
+        self.period.is_empty()
+            && self.response_requested.is_none()
+            && self.comment.is_none()
+            && self.extensions.is_empty()
     }
 }
 

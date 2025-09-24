@@ -84,6 +84,10 @@ impl<V> Extensions<V> {
     pub fn get_raw(&self, key: &impl Borrow<str>) -> Option<&V> {
         self.0.get(key.borrow())
     }
+
+    pub fn insert(&mut self, key: Nsid, value: V) -> Option<V> {
+        self.0.insert(key, value)
+    }
 }
 
 impl<V: Value + Clone> Extensions<V> {
