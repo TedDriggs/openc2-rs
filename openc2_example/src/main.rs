@@ -4,7 +4,7 @@ use clap::Parser;
 use futures::stream::StreamExt;
 use openc2::{
     Action, Args, Feature, Nsid,
-    json::{Command, Response},
+    json::Command,
     target::{self, Device},
 };
 use openc2_consumer::{Consume, Registry};
@@ -60,7 +60,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 )
                 .next()
                 .await
-                .transpose()?
                 .expect("stream yields at least one response");
 
             println!("{}", serde_json::to_string_pretty(&rsp)?);
@@ -87,15 +86,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into(),
             );
 
-            rsp.inspect(|res| match res {
-                Ok(r) => println!("{}", serde_json::to_string_pretty(&r).unwrap()),
-                Err(e) => eprintln!(
-                    "{}",
-                    serde_json::to_string_pretty(&Response::from(e.clone())).unwrap()
-                ),
-            })
-            .collect::<Vec<_>>()
-            .await;
+            rsp.inspect(|res| println!("{}", serde_json::to_string_pretty(&res).unwrap()))
+                .collect::<Vec<_>>()
+                .await;
         }
     }
 

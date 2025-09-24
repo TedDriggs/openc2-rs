@@ -227,26 +227,29 @@ impl EndpointResponse {
         &'a self,
         device: Device,
         file_path: String,
-    ) -> BoxStream<'a, Result<Response, Error>> {
+    ) -> BoxStream<'a, Response> {
         let Some(device_id) = &device.device_id else {
-            return stream_just(Err(
-                Error::validation("device_id is required").at("target.device.device_id")
+            return stream_just(Response::from(
+                Error::validation("device_id is required").at("target.device.device_id"),
             ));
         };
 
         let aid: Aid = match device_id.parse() {
             Ok(aid) => aid,
             Err(e) => {
-                return stream_just(Err(Error::validation(format!("invalid device_id: {}", e))
-                    .at("target.device.device_id")));
+                return stream_just(Response::from(
+                    Error::validation(format!("invalid device_id: {}", e))
+                        .at("target.device.device_id"),
+                ));
             }
         };
 
-        stream::iter([Ok(Response::new(StatusCode::Processing))])
+        stream::iter([Response::new(StatusCode::Processing)])
             .chain(stream::once(
-                self.client
-                    .delete_file(file_path.clone(), aid)
-                    .map(|res| res.map(|_| Response::new(StatusCode::Ok))),
+                self.client.delete_file(file_path.clone(), aid).map(|res| {
+                    res.map(|_| Response::new(StatusCode::Ok))
+                        .unwrap_or_else(Response::from)
+                }),
             ))
             .boxed()
     }
@@ -267,18 +270,19 @@ impl ToRegistration for EndpointResponse {
 }
 
 impl Consume for EndpointResponse {
-    fn consume<'a>(
-        &'a self,
-        msg: Message<Headers, Command>,
-    ) -> BoxStream<'a, Result<Response, Error>> {
+    fn consume<'a>(&'a self, msg: Message<Headers, Command>) -> BoxStream<'a, Response> {
         match msg.body.as_action_target() {
             (Action::Contain, Target::Device(_)) => {
-                stream::once(self.consume_contain_device(msg)).boxed()
+                stream::once(self.consume_contain_device(msg).map(|rsp| match rsp {
+                    Ok(rsp) => rsp,
+                    Err(e) => e.into(),
+                }))
+                .boxed()
             }
             (Action::Delete, Target::File(_)) => {
                 let (path, devices) = match self.validate_delete_file(msg) {
                     Ok(v) => v,
-                    Err(e) => return stream_just(Err(e)),
+                    Err(e) => return stream_just(e.into()),
                 };
 
                 stream::select_all(
@@ -288,10 +292,12 @@ impl Consume for EndpointResponse {
                 )
                 .boxed()
             }
-            (Action::Stop, Target::Process(_)) => {
-                stream::once(self.consume_stop_process(msg)).boxed()
-            }
-            (action, target) => stream_just(Err(Error::validation(format!(
+            (Action::Stop, Target::Process(_)) => stream::once(
+                self.consume_stop_process(msg)
+                    .map(|rsp| rsp.unwrap_or_else(Response::from)),
+            )
+            .boxed(),
+            (action, target) => stream_just(Response::from(Error::validation(format!(
                 "unsupported action-target pair: {action} - {}",
                 target.kind()
             )))),
@@ -378,11 +384,12 @@ impl ToRegistration for Sandbox {
 }
 
 impl Consume for Sandbox {
-    fn consume<'a>(
-        &'a self,
-        msg: Message<Headers, Command>,
-    ) -> BoxStream<'a, Result<Response, Error>> {
-        stream::once(self.consume_msg(msg)).boxed()
+    fn consume<'a>(&'a self, msg: Message<Headers, Command>) -> BoxStream<'a, Response> {
+        stream::once(
+            self.consume_msg(msg)
+                .map(|rsp| rsp.unwrap_or_else(Response::from)),
+        )
+        .boxed()
     }
 }
 

@@ -86,11 +86,11 @@ impl Registration {
             .unwrap_or(false)
     }
 
-    pub fn query_features(&self, features: &Features) -> Result<Response, Error> {
+    pub fn query_features(&self, features: &Features) -> Response {
         if features.contains(&Feature::RateLimit) {
-            return Err(
-                Error::not_implemented("rate limit feature is not implemented").at("features"),
-            );
+            return Error::not_implemented("rate limit feature is not implemented")
+                .at("features")
+                .into();
         }
 
         let mut results = Results::default();
@@ -127,7 +127,7 @@ impl Registration {
                 .collect();
         }
 
-        Ok(results.into())
+        results.into()
     }
 }
 
@@ -155,10 +155,7 @@ struct RegEntry<T> {
 }
 
 impl Consume for RegEntry<Box<dyn Consume + Send + Sync>> {
-    fn consume<'a>(
-        &'a self,
-        msg: Message<Headers, Command>,
-    ) -> BoxStream<'a, Result<Response, Error>> {
+    fn consume<'a>(&'a self, msg: Message<Headers, Command>) -> BoxStream<'a, Response> {
         if let (Action::Query, Target::Features(features)) = msg.body.as_action_target() {
             return stream_just(self.registration.query_features(features));
         }
@@ -167,10 +164,7 @@ impl Consume for RegEntry<Box<dyn Consume + Send + Sync>> {
 }
 
 impl<T: Consume + Send + Sync> Consume for RegEntry<T> {
-    fn consume<'a>(
-        &'a self,
-        msg: Message<Headers, Command>,
-    ) -> BoxStream<'a, Result<Response, Error>> {
+    fn consume<'a>(&'a self, msg: Message<Headers, Command>) -> BoxStream<'a, Response> {
         if let (Action::Query, Target::Features(features)) = msg.body.as_action_target() {
             return stream_just(self.registration.query_features(features));
         }
@@ -393,14 +387,14 @@ impl IntoIterator for Registry {
 }
 
 impl Consume for Registry {
-    fn consume<'a>(
-        &'a self,
-        msg: Message<Headers, Command>,
-    ) -> BoxStream<'a, Result<Response, Error>> {
+    fn consume<'a>(&'a self, msg: Message<Headers, Command>) -> BoxStream<'a, Response> {
         if msg.body.action == Action::Query
             && let Target::Features(features) = &msg.body.target
         {
-            return stream_just(self.query_features(features));
+            return stream_just(match self.query_features(features) {
+                Ok(rsp) => rsp,
+                Err(e) => e.into(),
+            });
         }
 
         let action = msg.body.action;
@@ -408,7 +402,7 @@ impl Consume for Registry {
         let mut consumers = self.get_matching(&(action, target_type.clone()));
 
         if consumers.is_empty() {
-            return stream_just(Err(Error::not_implemented_pair(action, &target_type)));
+            return stream_just(Error::not_implemented_pair(action, &target_type).into());
         }
 
         if let Some(profile) = &msg.body.profile {
@@ -417,10 +411,10 @@ impl Consume for Registry {
         }
 
         if consumers.is_empty() {
-            return stream_just(Err(Error::not_implemented(format!(
+            return stream_just(Error::not_implemented(format!(
                 "No consumer for action '{action}' and target type '{target_type:?}' matches profile '{:?}'",
                 msg.body.profile
-            ))));
+            )).into());
         }
 
         stream::select_all(
