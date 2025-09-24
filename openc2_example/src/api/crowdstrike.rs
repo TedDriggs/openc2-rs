@@ -122,9 +122,11 @@ impl Client {
 
     pub async fn delete_file(
         &self,
-        _path: &str,
-        _device_id: &Aid,
-    ) -> Result<reqwest::Response, reqwest::Error> {
-        todo!()
+        _path: String,
+        _device_id: Aid,
+    ) -> Result<reqwest::Response, openc2::Error> {
+        Err(openc2::Error::not_implemented(
+            "CrowdStrike file deletion not implemented",
+        ))
     }
 }
