@@ -149,7 +149,7 @@ impl FromStr for ProfileTargetType<'_> {
 }
 
 #[skip_serializing_none]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Hash)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Hash)]
 pub struct Artifact {
     pub media_type: Option<String>,
     pub payload: Option<Payload>,
@@ -157,7 +157,7 @@ pub struct Artifact {
 }
 
 #[skip_serializing_none]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Hash)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Hash)]
 pub struct File {
     pub name: Option<String>,
     pub hashes: Option<Hashes>,
@@ -171,7 +171,7 @@ impl IsEmpty for File {
 }
 
 #[skip_serializing_none]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Device {
     pub hostname: Option<String>,
     pub idn_hostname: Option<String>,
@@ -200,7 +200,7 @@ impl Device {
 pub type Features = IndexSet<Feature>;
 
 #[skip_serializing_none]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Ipv4Connection {
     pub src_addr: Option<Ipv4Net>,
     pub src_port: Option<Port>,
@@ -210,7 +210,7 @@ pub struct Ipv4Connection {
 }
 
 #[skip_serializing_none]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Ipv6Connection {
     pub src_addr: Option<Ipv6Net>,
     pub src_port: Option<Port>,
@@ -228,7 +228,7 @@ pub enum L4Protocol {
 }
 
 #[skip_serializing_none]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Hash)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Hash)]
 pub struct Process {
     pub pid: Option<u32>,
     pub name: Option<String>,
