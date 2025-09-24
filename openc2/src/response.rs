@@ -72,6 +72,12 @@ impl<V> AsRef<StatusCode> for Response<V> {
     }
 }
 
+impl<V> From<Result<Response<V>, Error>> for Response<V> {
+    fn from(value: Result<Response<V>, Error>) -> Self {
+        value.unwrap_or_else(Self::from)
+    }
+}
+
 impl<V> TryFrom<Body<Content<V>>> for Response<V> {
     type Error = Error;
 

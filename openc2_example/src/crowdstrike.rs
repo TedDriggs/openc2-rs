@@ -246,10 +246,9 @@ impl EndpointResponse {
 
         stream::iter([Response::new(StatusCode::Processing)])
             .chain(stream::once(
-                self.client.delete_file(file_path.clone(), aid).map(|res| {
-                    res.map(|_| Response::new(StatusCode::Ok))
-                        .unwrap_or_else(Response::from)
-                }),
+                self.client
+                    .delete_file(file_path.clone(), aid)
+                    .map(|res| res.map(|_| Response::new(StatusCode::Ok)).into()),
             ))
             .boxed()
     }
@@ -273,11 +272,7 @@ impl Consume for EndpointResponse {
     fn consume<'a>(&'a self, msg: Message<Headers, Command>) -> BoxStream<'a, Response> {
         match msg.body.as_action_target() {
             (Action::Contain, Target::Device(_)) => {
-                stream::once(self.consume_contain_device(msg).map(|rsp| match rsp {
-                    Ok(rsp) => rsp,
-                    Err(e) => e.into(),
-                }))
-                .boxed()
+                stream::once(self.consume_contain_device(msg).map(Response::from)).boxed()
             }
             (Action::Delete, Target::File(_)) => {
                 let (path, devices) = match self.validate_delete_file(msg) {
@@ -292,11 +287,9 @@ impl Consume for EndpointResponse {
                 )
                 .boxed()
             }
-            (Action::Stop, Target::Process(_)) => stream::once(
-                self.consume_stop_process(msg)
-                    .map(|rsp| rsp.unwrap_or_else(Response::from)),
-            )
-            .boxed(),
+            (Action::Stop, Target::Process(_)) => {
+                stream::once(self.consume_stop_process(msg).map(Response::from)).boxed()
+            }
             (action, target) => stream_just(Response::from(Error::validation(format!(
                 "unsupported action-target pair: {action} - {}",
                 target.kind()
@@ -385,11 +378,7 @@ impl ToRegistration for Sandbox {
 
 impl Consume for Sandbox {
     fn consume<'a>(&'a self, msg: Message<Headers, Command>) -> BoxStream<'a, Response> {
-        stream::once(
-            self.consume_msg(msg)
-                .map(|rsp| rsp.unwrap_or_else(Response::from)),
-        )
-        .boxed()
+        stream::once(self.consume_msg(msg).map(Response::from)).boxed()
     }
 }
 
