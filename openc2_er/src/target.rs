@@ -120,7 +120,7 @@ pub struct RegistryEntry {
 }
 
 #[skip_serializing_none]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Account {
     /// The unique identifier of the account.
     pub uid: Option<String>,
@@ -130,7 +130,7 @@ pub struct Account {
     pub directory: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Service {
     pub name: Option<String>,
     pub display_name: Option<String>,

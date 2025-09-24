@@ -1,6 +1,8 @@
-use openc2::{DomainName, Error, Ipv4Net, Ipv6Net, IsEmpty, target::Device};
+use openc2::{DomainName, Error, Ipv4Net, Ipv6Net, IsEmpty, Profile, target::Device};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+
+use crate::NS;
 
 /// Arguments specific to the Endpoint Response Actuator Profile.
 ///
@@ -8,7 +10,7 @@ use serde_with::skip_serializing_none;
 /// This struct denies unknown fields during deserialization to ensure the consumer is aware of
 /// all producer-specified arguments.
 #[skip_serializing_none]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Args {
     pub account_status: Option<AccountStatus>,
@@ -40,6 +42,12 @@ impl IsEmpty for Args {
     }
 }
 
+impl Profile for Args {
+    fn ns() -> &'static openc2::Nsid {
+        NS
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AccountStatus {
@@ -64,7 +72,7 @@ pub enum DeviceContainment {
     DisableNic,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DownstreamDevice {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub devices: Vec<Device>,
@@ -97,7 +105,7 @@ pub enum PeriodicScan {
     Disabled,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PermittedAddresses {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ipv4_net: Vec<Ipv4Net>,
