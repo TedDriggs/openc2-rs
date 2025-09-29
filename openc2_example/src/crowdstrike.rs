@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use futures::{
     FutureExt, StreamExt,
@@ -86,6 +86,7 @@ impl TryFrom<Message<Headers, Command>> for ContainDeviceArgs {
 
 #[derive(Debug, Clone, Staging)]
 #[staging(error = Error, additional_errors)]
+#[allow(dead_code, reason = "fields will be used in future implementation")]
 pub struct StopProcessArgs {
     pub device_id: Aid,
     pub pid: u32,
@@ -171,70 +172,7 @@ impl EndpointResponse {
         &self,
         msg: Message<Headers, Command>,
     ) -> Result<Response, Error> {
-        let Command { args, profile, .. } = &msg.body;
-
-        let mut errors = Error::accumulator();
-
-        errors.handle(args.period.require_empty());
-
-        let process = match &msg.body.target {
-            Target::Process(process) => process,
-            _ => {
-                return Err(Error::validation("target must be a process").at("target"));
-            }
-        };
-
-        if let Some(profile) = profile
-            && profile != &Nsid::ER
-        {
-            errors.push(Error::not_implemented("profile should be er").at("profile"));
-        }
-
-        errors.finish()?;
-
-        let er_ext = args
-            .extensions
-            .require::<openc2_er::Args>(&Nsid::ER)
-            .map_err(Error::validation)
-            .at(Nsid::ER)?;
-
-        let downstream = er_ext.require_downstream_device()?;
-
-        if downstream.devices.len() > 1 {
-            return Err(Error::validation("only one device is supported")
-                .at("devices")
-                .at("downstream_device")
-                .at(Nsid::ER));
-        }
-
-        let aids = downstream
-            .devices
-            .iter()
-            .filter_map(|s| s.device_id.as_deref())
-            .map(Aid::from_str)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| {
-                Error::validation(format!("invalid device id: {}", e))
-                    .at("devices")
-                    .at("downstream_device")
-                    .at(Nsid::ER)
-            })?;
-
-        if aids.is_empty() {
-            return Err(Error::validation("at least one device is required")
-                .at("devices")
-                .at("downstream_device")
-                .at(Nsid::ER));
-        }
-
-        let pid = process.pid.ok_or_else(|| {
-            Error::validation("process pid is required")
-                .at("pid")
-                .at("process")
-                .at("target")
-        })?;
-
-        self.stop_process(&aids[0], pid).await
+        self.stop_process(msg.try_into()?).await
     }
 
     /// Validates a "delete file" command, returning the file path and list of target devices.
