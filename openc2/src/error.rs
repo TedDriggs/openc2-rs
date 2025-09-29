@@ -112,6 +112,23 @@ impl<'a> IntoIterator for &'a Error {
     }
 }
 
+/// Create an Error from an iterator of Errors.
+///
+/// # Panics
+/// This function will panic if the iterator is empty.
+impl FromIterator<Error> for Error {
+    fn from_iter<I: IntoIterator<Item = Error>>(iter: I) -> Self {
+        let errors: Vec<Error> = iter.into_iter().collect();
+        match errors.len() {
+            0 => panic!("cannot create Error from empty iterator"),
+            1 => errors.into_iter().next().unwrap(),
+            _ => Self {
+                kind: ErrorKind::Multiple(errors),
+            },
+        }
+    }
+}
+
 pub enum Iter<'a> {
     Single(iter::Once<&'a Error>),
     Multiple(std::slice::Iter<'a, Error>),
