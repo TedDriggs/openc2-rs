@@ -13,8 +13,131 @@ use openc2_er::DeviceContainment;
 use reqwest::Url;
 
 use openc2_consumer::{Consume, Registration, ToRegistration, util::stream_just};
+use staging::Staging;
 
 use crate::api::crowdstrike::{Aid, Client};
+
+#[derive(Debug, Clone, Staging)]
+#[staging(error = Error, additional_errors)]
+pub struct ContainDeviceArgs {
+    pub device_id: Aid,
+    #[allow(
+        dead_code,
+        reason = "this should be passed to the API but is not yet implemented"
+    )]
+    pub reason: Option<String>,
+}
+
+impl TryFrom<Message<Headers, Command>> for ContainDeviceArgs {
+    type Error = Error;
+
+    fn try_from(msg: Message<Headers, Command>) -> Result<Self, Self::Error> {
+        let Command {
+            args,
+            target,
+            profile,
+            ..
+        } = msg.body;
+
+        let mut result = ContainDeviceArgsStaging {
+            device_id: target.try_into(),
+            reason: Ok(args.comment),
+            additional_errors: vec![],
+        };
+
+        let er_ext = result.handle(
+            args.extensions
+                .require::<openc2_er::Args>(&Nsid::ER)
+                .map_err(Error::validation)
+                .at(Nsid::ER),
+        );
+
+        if let Some(ext) = er_ext {
+            match ext.device_containment {
+                Some(DeviceContainment::NetworkIsolation) => {}
+                None => {
+                    result.additional_errors.push(
+                        Error::validation("device_containment is required")
+                            .at("device_containment")
+                            .at(Nsid::ER),
+                    );
+                }
+                Some(_) => {
+                    result.additional_errors.push(
+                        Error::not_implemented("must be network_isolation")
+                            .at("device_containment")
+                            .at(Nsid::ER),
+                    );
+                }
+            }
+        }
+
+        if let Some(profile) = profile
+            && profile != Nsid::ER
+        {
+            result
+                .additional_errors
+                .push(Error::validation("profile should be er").at("profile"));
+        }
+
+        result.try_into()
+    }
+}
+
+#[derive(Debug, Clone, Staging)]
+#[staging(error = Error, additional_errors)]
+pub struct StopProcessArgs {
+    pub device_id: Aid,
+    pub pid: u32,
+}
+
+impl TryFrom<Message<Headers, Command>> for StopProcessArgs {
+    type Error = Error;
+
+    fn try_from(msg: Message<Headers, Command>) -> Result<Self, Self::Error> {
+        let Command { args, target, .. } = msg.body;
+
+        let er_ext = args
+            .extensions
+            .require::<openc2_er::Args>(&Nsid::ER)
+            .map_err(Error::validation)
+            .at(Nsid::ER);
+
+        let result = StopProcessArgsStaging {
+            pid: match target {
+                Target::Process(process) => process.pid.ok_or_else(|| {
+                    Error::validation("process pid is required")
+                        .at("pid")
+                        .at("process")
+                        .at("target")
+                }),
+                _ => Err(Error::validation("target must be a process").at("target")),
+            },
+            device_id: er_ext
+                .as_ref()
+                .map_err(Clone::clone)
+                .and_then(|args| args.require_downstream_device())
+                .and_then(|downstream| {
+                    if downstream.devices.len() != 1 {
+                        return Err(Error::validation("exactly one device is required")
+                            .at("devices")
+                            .at("downstream_device"));
+                    }
+                    let device = &downstream.devices[0];
+                    device
+                        .clone()
+                        .try_into()
+                        .at(0)
+                        .at("devices")
+                        .at("downstream_device")
+                })
+                .at(Nsid::ER),
+            additional_errors: vec![],
+        };
+
+        result.try_into()
+    }
+}
 
 pub struct EndpointResponse {
     client: Arc<Client>,
@@ -25,16 +148,15 @@ impl EndpointResponse {
         Self { client }
     }
 
-    pub async fn contain_device(&self, id: &Aid, _reason: Option<&str>) -> Result<Response, Error> {
+    pub async fn contain_device(&self, args: ContainDeviceArgs) -> Result<Response, Error> {
         self.client
-            .contain_device(id)
+            .contain_device(&args.device_id)
             .await
             .map_err(Error::custom)?;
         Ok(Response::new(StatusCode::Ok))
     }
 
-    #[allow(unused_variables)]
-    pub async fn stop_process(&self, device: &Aid, pid: u32) -> Result<Response, Error> {
+    pub async fn stop_process(&self, _args: StopProcessArgs) -> Result<Response, Error> {
         todo!()
     }
 
@@ -42,73 +164,7 @@ impl EndpointResponse {
         &self,
         msg: Message<Headers, Command>,
     ) -> Result<Response, Error> {
-        let Command { args, profile, .. } = &msg.body;
-
-        let mut errors = Error::accumulator();
-
-        errors.handle(args.period.require_empty());
-
-        let device = match &msg.body.target {
-            Target::Device(device) => device,
-            _ => {
-                return Err(Error::validation("target must be a device").at("target"));
-            }
-        };
-
-        let aid = errors.handle(
-            device
-                .device_id
-                .as_ref()
-                .ok_or_else(|| {
-                    Error::validation("device_id is required")
-                        .at("device")
-                        .at("target")
-                })
-                .and_then(|s| {
-                    Aid::from_str(s).map_err(|e| {
-                        Error::validation(format!("invalid device_id: {}", e))
-                            .at("target.device.device_id")
-                    })
-                }),
-        );
-
-        if let Some(profile) = profile
-            && profile != &Nsid::ER
-        {
-            errors.push(Error::not_implemented("profile should be er").at("profile"));
-        }
-
-        let er_ext = args
-            .extensions
-            .require::<openc2_er::Args>(&Nsid::ER)
-            .map_err(Error::validation)
-            .at(Nsid::ER)?;
-
-        match er_ext.device_containment {
-            Some(DeviceContainment::NetworkIsolation) => {}
-            None => {
-                errors.push(
-                    Error::validation("device_containment is required")
-                        .at("device_containment")
-                        .at(Nsid::ER),
-                );
-            }
-            Some(_) => {
-                errors.push(
-                    Error::not_implemented("must be network_isolation")
-                        .at("device_containment")
-                        .at(Nsid::ER),
-                );
-            }
-        }
-
-        errors.finish()?;
-
-        self.contain_device(
-            aid.as_ref().expect("AID was parsed"),
-            args.comment.as_deref(),
-        )
-        .await
+        self.contain_device(msg.try_into()?).await
     }
 
     async fn consume_stop_process(

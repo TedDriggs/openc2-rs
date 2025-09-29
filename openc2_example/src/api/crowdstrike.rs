@@ -3,6 +3,7 @@
 
 use std::{fmt, str::FromStr};
 
+use openc2::{Error, ErrorAt};
 use reqwest::{
     Url,
     header::{self, HeaderName, HeaderValue},
@@ -23,6 +24,34 @@ pub struct Aid(String);
 impl fmt::Display for Aid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl<V> TryFrom<openc2::Target<V>> for Aid {
+    type Error = Error;
+
+    fn try_from(value: openc2::Target<V>) -> Result<Self, Self::Error> {
+        let openc2::Target::Device(device) = value else {
+            return Err(Error::validation("target is not a device"));
+        };
+
+        device.try_into().at("device")
+    }
+}
+
+impl TryFrom<openc2::target::Device> for Aid {
+    type Error = Error;
+
+    fn try_from(value: openc2::target::Device) -> Result<Self, Self::Error> {
+        value
+            .device_id
+            .as_ref()
+            .ok_or_else(|| Error::validation("device_id is required"))
+            .and_then(|s| {
+                Aid::from_str(s).map_err(|e| {
+                    Error::validation(format!("invalid device_id: {}", e)).at("device_id")
+                })
+            })
     }
 }
 
@@ -124,8 +153,8 @@ impl Client {
         &self,
         _path: String,
         _device_id: Aid,
-    ) -> Result<reqwest::Response, openc2::Error> {
-        Err(openc2::Error::not_implemented(
+    ) -> Result<reqwest::Response, Error> {
+        Err(Error::not_implemented(
             "CrowdStrike file deletion not implemented",
         ))
     }
