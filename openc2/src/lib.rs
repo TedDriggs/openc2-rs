@@ -23,7 +23,7 @@ pub use error::{Error, ErrorAt};
 pub use profile::Profile;
 
 #[doc(inline)]
-pub use command::{Action, Args, Command};
+pub use command::{Action, Args, Command, Period};
 
 #[doc(inline)]
 pub use data::*;
