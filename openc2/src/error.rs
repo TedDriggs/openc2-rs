@@ -464,8 +464,35 @@ enum ErrorKind {
     #[cfg(feature = "cbor")]
     #[error("CBOR error: {0}")]
     Cbor(String),
-    #[error("multiple errors")]
+    #[error("multiple errors: {}", .0.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", "))]
     Multiple(Vec<Error>),
+}
+
+impl From<&Error> for StatusCode {
+    fn from(value: &Error) -> Self {
+        match &value.kind {
+            ErrorKind::Validation(_) => StatusCode::BadRequest,
+            ErrorKind::NotImplemented(_) => StatusCode::NotImplemented,
+            ErrorKind::NotFound(_) => StatusCode::NotFound,
+            ErrorKind::Custom(_) => StatusCode::InternalError,
+            #[cfg(feature = "json")]
+            ErrorKind::Json(_) => StatusCode::InternalError,
+            #[cfg(feature = "cbor")]
+            ErrorKind::Cbor(_) => StatusCode::InternalError,
+            ErrorKind::Multiple(errors) => {
+                let mut errors = errors.iter().peekable();
+                let code = errors
+                    .peek()
+                    .map(|&e| e.into())
+                    .expect("multi-error has at least one error");
+                if errors.all(|e| StatusCode::from(e) == code) {
+                    code
+                } else {
+                    StatusCode::InternalError
+                }
+            }
+        }
+    }
 }
 
 impl<V> From<Error> for Response<V> {
@@ -479,11 +506,9 @@ impl<V> From<Error> for Response<V> {
             ErrorKind::Json(e) => Self::new(StatusCode::InternalError).with_status_text(e),
             #[cfg(feature = "cbor")]
             ErrorKind::Cbor(e) => Self::new(StatusCode::InternalError).with_status_text(e),
-            ErrorKind::Multiple(errors) => errors
-                .into_iter()
-                .next()
-                .expect("multi-error has errors")
-                .into(),
+            ErrorKind::Multiple(_) => {
+                Response::new(StatusCode::from(&value)).with_status_text(value.to_string())
+            }
         }
     }
 }
