@@ -83,6 +83,19 @@ impl Error {
             _ => None,
         }
     }
+
+    fn flatten_inner(self, errors: &mut Vec<Error>) {
+        match self.kind {
+            ErrorKind::Multiple(nested_errors) => {
+                for err in nested_errors {
+                    err.flatten_inner(errors);
+                }
+            }
+            _ => {
+                errors.push(self);
+            }
+        }
+    }
 }
 
 impl ErrorAt for Error {
@@ -118,7 +131,11 @@ impl<'a> IntoIterator for &'a Error {
 /// This function will panic if the iterator is empty.
 impl FromIterator<Error> for Error {
     fn from_iter<I: IntoIterator<Item = Error>>(iter: I) -> Self {
-        let errors: Vec<Error> = iter.into_iter().collect();
+        let mut errors = Vec::new();
+        for error in iter.into_iter() {
+            error.flatten_inner(&mut errors);
+        }
+
         match errors.len() {
             0 => panic!("cannot create Error from empty iterator"),
             1 => errors.into_iter().next().unwrap(),
@@ -213,13 +230,10 @@ impl Accumulator {
             return Ok(());
         }
 
-        let mut errors = self.errors.take().expect("Accumulator already finalized");
+        let errors = self.errors.take().expect("Accumulator already finalized");
         match errors.len() {
             0 => Ok(()),
-            1 => Err(errors.drain(..).next().unwrap()),
-            _ => Err(Error {
-                kind: ErrorKind::Multiple(errors),
-            }),
+            _ => Err(errors.into_iter().collect()),
         }
     }
 
