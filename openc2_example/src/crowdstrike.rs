@@ -7,7 +7,7 @@ use futures::{
 use openc2::{
     Action, Error, ErrorAt, Hashes, Message, Nsid, Payload, Profile, StatusCode, TargetType,
     json::{Command, Headers, Response, Target},
-    target::{self, Device},
+    target,
 };
 use openc2_er::DeviceContainment;
 use reqwest::Url;
@@ -16,6 +16,40 @@ use openc2_consumer::{Consume, Registration, ToRegistration, util::stream_just};
 use staging::Staging;
 
 use crate::api::crowdstrike::{Aid, Client};
+
+fn aids_from_downstream_devices(
+    downstream: &openc2_er::DownstreamDevice,
+) -> Result<Vec<Aid>, Error> {
+    let mut errors = Error::accumulator();
+
+    if !downstream.device_groups.is_empty() {
+        errors.push(Error::not_implemented("device_groups are not supported").at("device_groups"));
+    }
+
+    if downstream.tenant_id.is_some() {
+        errors.push(Error::not_implemented("tenant_id is not supported").at("tenant_id"));
+    }
+
+    if downstream.devices.is_empty() {
+        errors.push(Error::validation("at least one device is required").at("devices"));
+    }
+
+    let aids = downstream
+        .devices
+        .iter()
+        .enumerate()
+        .map(|(idx, device)| {
+            device
+                .try_into()
+                .at(idx)
+                .at("devices")
+                .at("downstream_device")
+        })
+        .filter_map(|res| errors.handle(res))
+        .collect::<Vec<Aid>>();
+
+    errors.finish_with(aids)
+}
 
 #[derive(Debug, Clone, Staging)]
 #[staging(error = Error, additional_errors)]
@@ -140,6 +174,52 @@ impl TryFrom<Message<Headers, Command>> for StopProcessArgs {
     }
 }
 
+#[derive(Debug, Clone, Staging)]
+#[staging(error = Error, additional_errors)]
+pub struct DeleteFileArgs {
+    pub file_path: String,
+    pub target_devices: Vec<Aid>,
+}
+
+impl TryFrom<Message<Headers, Command>> for DeleteFileArgs {
+    type Error = Error;
+
+    fn try_from(msg: Message<Headers, Command>) -> Result<Self, Self::Error> {
+        let mut result = DeleteFileArgsStaging {
+            file_path: match msg.body.target {
+                Target::File(file) => file.path.ok_or_else(|| {
+                    Error::validation("file path is required")
+                        .at("path")
+                        .at("file")
+                        .at("target")
+                }),
+                _ => Err(Error::validation("target must be a file").at("target")),
+            },
+            target_devices: ({
+                let er_ext = msg
+                    .body
+                    .args
+                    .extensions
+                    .require::<openc2_er::Args>(&Nsid::ER)
+                    .map_err(Error::validation);
+
+                er_ext
+                    .as_ref()
+                    .map_err(Clone::clone)
+                    .and_then(|ext| ext.require_downstream_device())
+                    .and_then(aids_from_downstream_devices)
+            })
+            .at(Nsid::ER)
+            .at("args"),
+            additional_errors: vec![],
+        };
+
+        result.handle(dbg!(msg.body.args.period.require_empty().at("args")));
+
+        result.try_into()
+    }
+}
+
 pub struct EndpointResponse {
     client: Arc<Client>,
 }
@@ -175,69 +255,30 @@ impl EndpointResponse {
         self.stop_process(msg.try_into()?).await
     }
 
-    /// Validates a "delete file" command, returning the file path and list of target devices.
-    fn validate_delete_file(
-        &self,
+    fn consume_delete_file<'a>(
+        &'a self,
         msg: Message<Headers, Command>,
-    ) -> Result<(String, Vec<Device>), Error> {
-        let Command { args, profile, .. } = msg.body;
-
-        let mut errors = Error::accumulator();
-
-        errors.handle(args.period.require_empty());
-
-        let file = match msg.body.target {
-            Target::File(file) => file,
-            _ => {
-                panic!("target must be a file, was {}", msg.body.target.kind());
+    ) -> BoxStream<'a, Response> {
+        let cmd = match DeleteFileArgs::try_from(msg) {
+            Ok(cmd) => cmd,
+            Err(e) => {
+                return stream_just(e.into());
             }
         };
 
-        let path = errors.handle(file.path.ok_or_else(|| {
-            Error::validation("file path is required")
-                .at("path")
-                .at("file")
-                .at("target")
-        }));
-
-        if let Some(profile) = profile
-            && profile != Nsid::ER
-        {
-            errors.push(Error::not_implemented("profile should be er").at("profile"));
-        }
-
-        let er_ext = args
-            .extensions
-            .require::<openc2_er::Args>(&Nsid::ER)
-            .map_err(Error::validation)
-            .at(Nsid::ER)?;
-
-        let downstream = errors.handle(er_ext.require_downstream_device());
-
-        errors.finish_with((path.unwrap(), downstream.unwrap().clone().devices))
+        stream::select_all(
+            cmd.target_devices.into_iter().map(move |device_id| {
+                self.delete_file_from_device(device_id, cmd.file_path.clone())
+            }),
+        )
+        .boxed()
     }
 
     fn delete_file_from_device<'a>(
         &'a self,
-        device: Device,
+        aid: Aid,
         file_path: String,
     ) -> BoxStream<'a, Response> {
-        let Some(device_id) = &device.device_id else {
-            return stream_just(Response::from(
-                Error::validation("device_id is required").at("target.device.device_id"),
-            ));
-        };
-
-        let aid: Aid = match device_id.parse() {
-            Ok(aid) => aid,
-            Err(e) => {
-                return stream_just(Response::from(
-                    Error::validation(format!("invalid device_id: {}", e))
-                        .at("target.device.device_id"),
-                ));
-            }
-        };
-
         stream::iter([Response::new(StatusCode::Processing)])
             .chain(stream::once(
                 self.client
@@ -268,19 +309,7 @@ impl Consume for EndpointResponse {
             (Action::Contain, Target::Device(_)) => {
                 stream::once(self.consume_contain_device(msg).map(Response::from)).boxed()
             }
-            (Action::Delete, Target::File(_)) => {
-                let (path, devices) = match self.validate_delete_file(msg) {
-                    Ok(v) => v,
-                    Err(e) => return stream_just(e.into()),
-                };
-
-                stream::select_all(
-                    devices
-                        .into_iter()
-                        .map(move |device| self.delete_file_from_device(device, path.clone())),
-                )
-                .boxed()
-            }
+            (Action::Delete, Target::File(_)) => self.consume_delete_file(msg),
             (Action::Stop, Target::Process(_)) => {
                 stream::once(self.consume_stop_process(msg).map(Response::from)).boxed()
             }

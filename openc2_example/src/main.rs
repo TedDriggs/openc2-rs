@@ -3,7 +3,7 @@ use std::sync::Arc;
 use clap::Parser;
 use futures::stream::StreamExt;
 use openc2::{
-    Action, Args, Feature, Nsid,
+    Action, Args, Duration, Feature, Nsid, Period, ResponseType,
     json::Command,
     target::{self, Device},
 };
@@ -30,6 +30,9 @@ pub enum Subcommand {
         /// The target device ID (AID).
         #[clap(long, num_args(1..))]
         aid: Vec<String>,
+        /// A duration for the deletion; setting this will trigger a validation error.
+        #[clap(short, long)]
+        duration: Option<u64>,
     },
 }
 
@@ -64,7 +67,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             println!("{}", serde_json::to_string_pretty(&rsp)?);
         }
-        Subcommand::DeleteFile { file_path, aid } => {
+        Subcommand::DeleteFile {
+            file_path,
+            aid,
+            duration,
+        } => {
             let rsp = registry.consume(
                 Command::new(
                     Action::Delete,
@@ -73,16 +80,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         ..Default::default()
                     },
                 )
-                .with_args(Args::try_with_extension(
-                    Nsid::ER,
-                    &openc2_er::Args {
-                        downstream_device: Some(DownstreamDevice {
-                            devices: aid.into_iter().map(Device::with_device_id).collect(),
-                            ..Default::default()
-                        }),
-                        ..Default::default()
+                .with_args(Args {
+                    response_requested: Some(ResponseType::Complete),
+                    period: Period {
+                        start_time: None,
+                        stop_time: None,
+                        duration: duration.map(Duration::from_millis),
                     },
-                )?)
+                    ..Args::try_with_extension(
+                        Nsid::ER,
+                        &openc2_er::Args {
+                            downstream_device: Some(DownstreamDevice {
+                                devices: aid.into_iter().map(Device::with_device_id).collect(),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        },
+                    )?
+                })
                 .into(),
             );
 

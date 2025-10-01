@@ -12,7 +12,7 @@ use reqwest::{
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 
 #[derive(Debug, Clone, thiserror::Error)]
-#[error("aid parse error")]
+#[error("an AID must be a 32-character hexadecimal string")]
 pub struct ParseAidError;
 
 /// An AID (Agent ID) identifies a device in CrowdStrike.
@@ -43,6 +43,14 @@ impl TryFrom<openc2::target::Device> for Aid {
     type Error = Error;
 
     fn try_from(value: openc2::target::Device) -> Result<Self, Self::Error> {
+        (&value).try_into()
+    }
+}
+
+impl TryFrom<&openc2::target::Device> for Aid {
+    type Error = Error;
+
+    fn try_from(value: &openc2::target::Device) -> Result<Self, Self::Error> {
         value
             .device_id
             .as_ref()
