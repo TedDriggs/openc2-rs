@@ -493,18 +493,12 @@ impl From<&Error> for StatusCode {
             ErrorKind::Json(_) => StatusCode::InternalError,
             #[cfg(feature = "cbor")]
             ErrorKind::Cbor(_) => StatusCode::InternalError,
-            ErrorKind::Multiple(errors) => {
-                let mut errors = errors.iter().peekable();
-                let code = errors
-                    .peek()
-                    .map(|&e| e.into())
-                    .expect("multi-error has at least one error");
-                if errors.all(|e| StatusCode::from(e) == code) {
-                    code
-                } else {
-                    StatusCode::InternalError
-                }
-            }
+            ErrorKind::Multiple(errors) => errors
+                .iter()
+                .map(StatusCode::from)
+                .filter(|c| c.is_error())
+                .min()
+                .unwrap_or(StatusCode::InternalError),
         }
     }
 }
