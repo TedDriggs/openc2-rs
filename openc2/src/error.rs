@@ -60,6 +60,15 @@ impl Error {
             ErrorKind::Validation(ve) => {
                 ve.path.push_front(segment);
             }
+            ErrorKind::NotImplemented(nie) => {
+                if let Some(path) = &mut nie.path {
+                    path.push_front(segment);
+                } else {
+                    nie.path = Some(Path {
+                        segments: vec![segment].into(),
+                    });
+                }
+            }
             ErrorKind::Multiple(errors) => {
                 for err in errors {
                     *err = err.clone().at(segment.clone());
@@ -329,7 +338,7 @@ impl From<&'static str> for PathSegment {
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
-#[error("{path}: {message}")]
+#[error("{message} (at {path})")]
 pub struct ValidationError {
     path: Path,
     message: String,
