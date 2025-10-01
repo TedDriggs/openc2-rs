@@ -106,6 +106,42 @@ pub enum StatusCode {
     ServiceUnavailable = 503,
 }
 
+impl StatusCode {
+    /// Check if status is within 100-199.
+    pub fn is_informational(&self) -> bool {
+        matches!(self, StatusCode::Processing)
+    }
+
+    /// Check if status is within 200-299.
+    pub fn is_success(&self) -> bool {
+        matches!(self, StatusCode::Ok)
+    }
+
+    /// Check if status is within 400-599.
+    pub fn is_error(&self) -> bool {
+        self.is_producer_error() || self.is_consumer_error()
+    }
+
+    /// Check if status is within 400-499.
+    pub fn is_producer_error(&self) -> bool {
+        matches!(
+            self,
+            StatusCode::BadRequest
+                | StatusCode::Unauthorized
+                | StatusCode::Forbidden
+                | StatusCode::NotFound
+        )
+    }
+
+    /// Check if status is within 500-599.
+    pub fn is_consumer_error(&self) -> bool {
+        matches!(
+            self,
+            StatusCode::InternalError | StatusCode::NotImplemented | StatusCode::ServiceUnavailable
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Results<V> {
