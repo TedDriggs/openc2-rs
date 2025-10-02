@@ -1,6 +1,6 @@
 [package]
 name = "openc2_consumer"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["Ted Driggs <t.driggs@outlook.com>"]
 license = "MIT"
@@ -11,4 +11,4 @@ rust-version = "1.89.0"
 [dependencies]
 async-trait = "0.1.89"
 futures = "0.3.31"
-openc2 = { path = "../openc2", version = "=0.1.0" }
+openc2 = { path = "../openc2", version = "=0.2.0" }

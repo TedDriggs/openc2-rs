@@ -1,6 +1,6 @@
 [package]
 name = "openc2_example"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 publish = false
 description = "Example OpenC2 consumer"
@@ -9,9 +9,9 @@ description = "Example OpenC2 consumer"
 async-trait = "0.1.89"
 clap = { version = "4.5.47", features = ["derive", "env"] }
 futures = "0.3.31"
-openc2 = { path = "../openc2", version = "=0.1.0" }
-openc2_consumer = { path = "../openc2_consumer", version = "=0.1.0" }
-openc2_er = { path = "../openc2_er", version = "=0.1.0" }
+openc2 = { path = "../openc2", version = "=0.2.0" }
+openc2_consumer = { path = "../openc2_consumer", version = "=0.2.0" }
+openc2_er = { path = "../openc2_er", version = "=0.2.0" }
 reqwest = { version = "0.12.23", features = ["json"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.143"

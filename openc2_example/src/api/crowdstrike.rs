@@ -103,7 +103,7 @@ impl Client {
 
     pub fn new(cloud: impl Into<String>, client_secret: &str) -> Self {
         let client = reqwest::Client::builder()
-            .user_agent("openc2-consumer/0.1.0")
+            .user_agent("openc2-consumer/0.2.0")
             .default_headers(
                 [Client::auth_header(client_secret).unwrap()]
                     .into_iter()
